@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.jarvis.assistant.app-mergeReleaseResources-47:/values-v16/values-v16.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\rehaa\\.gradle\\caches\\transforms-3\\8829f8d7c12a80cbc4c78d90e204c433\\transformed\\appcompat-1.6.1\\res\\values-v16\\values-v16.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "5",
+                        "endColumns": "12",
+                        "endOffsets": "223"
+                    }
+                }
+            ]
+        }
+    ]
+}

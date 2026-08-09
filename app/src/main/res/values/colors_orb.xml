@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="orb_dark_bg">#07060A</color>
+    <color name="orb_card_bg">#120E08</color>
+    <color name="orb_primary">#FFAA30</color>
+    <color name="orb_cyan">#DD7700</color>
+    <color name="orb_cyan_glow">#FFCC66</color>
+    <color name="orb_stroke">#553300</color>
+    <color name="orb_text_muted">#C4A470</color>
+</resources>

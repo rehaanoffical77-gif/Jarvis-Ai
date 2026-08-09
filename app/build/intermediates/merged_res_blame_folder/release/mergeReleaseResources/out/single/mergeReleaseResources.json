@@ -1,0 +1,374 @@
+[
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_voice.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_voice.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/anim_activity_open_exit.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/anim/activity_open_exit.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_spinner_field.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_spinner_field.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_choice_grid_selected.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_choice_grid_selected.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_chevron_down.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_chevron_down.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-mdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_chat.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_chat.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/xml_accessibility_service_config.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/xml/accessibility_service_config.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_delete.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_delete.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xxxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_mic_off.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_mic_off.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_save_button.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_save_button.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-hdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_item_chat_jarvis.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/item_chat_jarvis.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_settings.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_settings.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_mic_button.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_mic_button.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/anim_activity_close_enter.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/anim/activity_close_enter.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-mdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_sim_spinner_item_selected.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/sim_spinner_item_selected.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_battery.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_battery.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_activity_main.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_sim_btn_selected.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_sim_btn_selected.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_orb_glow.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_orb_glow.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_check.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_check.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_status_pill_success.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_status_pill_success.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_mic_button_ring.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_mic_button_ring.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_item_prime_contact.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/item_prime_contact.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_spinner_item_dropdown.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/spinner_item_dropdown.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_settings_row.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_settings_row.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_control_pill.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_control_pill.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_skeleton_bar.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_skeleton_bar.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_sim_spinner_item_dropdown.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/sim_spinner_item_dropdown.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chat_user.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chat_user.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_dialog.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_dialog.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_sim_toggle_track.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_sim_toggle_track.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xxxhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_mic_on.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_mic_on.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chip_pill.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chip_pill.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_input_field_focused.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_input_field_focused.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_choice_card.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_choice_card.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_person.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_person.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_round_dark.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_round_dark.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chip_pill_primary.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chip_pill_primary.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_chevron_right.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_chevron_right.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_top_header_panel.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_top_header_panel.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_choice_card_selected.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_choice_card_selected.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chat_jarvis.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chat_jarvis.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-hdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chip_pill_success.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chip_pill_success.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_dialog_add_prime_contact.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/dialog_add_prime_contact.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_gradient_mesh.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_gradient_mesh.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_glass_card.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_glass_card.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_glass_pill.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_glass_pill.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_choice_grid.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_choice_grid.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_prime_badge.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_prime_badge.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/anim_activity_close_exit.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/anim/activity_close_exit.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_skeleton_circle.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_skeleton_circle.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_spinner_field_green.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_spinner_field_green.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_star.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_star.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chip_badge_primary.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chip_badge_primary.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_input_field.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_input_field.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_send.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_send.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_key.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_key.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/anim_activity_open_enter.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/anim/activity_open_enter.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_shield.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_shield.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_overlay_orb.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_overlay_orb.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_chip_badge_success.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_chip_badge_success.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_mic_button_ring_muted.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_mic_button_ring_muted.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xxhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_status_pill_danger.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_status_pill_danger.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_item_chat_user.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/item_chat_user.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/xml_network_security_config.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/xml/network_security_config.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_spinner_item_selected.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/spinner_item_selected.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_visibility.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_visibility.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_visibility_off.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_visibility_off.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/layout_activity_settings.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_power.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_power.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_jarvis_notif.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_jarvis_notif.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.jarvis.assistant.app-main-50:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_status_dot.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_status_dot.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_ic_close.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/ic_close.xml"
+    },
+    {
+        "merged": "com.jarvis.assistant.app-release-49:/drawable_bg_avatar_circle.xml.flat",
+        "source": "com.jarvis.assistant.app-main-50:/drawable/bg_avatar_circle.xml"
+    }
+]

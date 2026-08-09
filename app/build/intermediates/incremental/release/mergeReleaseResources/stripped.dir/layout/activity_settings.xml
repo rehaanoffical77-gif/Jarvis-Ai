@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_gradient_mesh">
+
+    <!-- Top AppBar Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="12dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="12dp"
+        android:background="#A6050505"
+        android:elevation="4dp">
+
+        <ImageButton
+            android:id="@+id/backBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_settings_row"
+            android:src="@drawable/ic_chevron_right"
+            android:rotation="180"
+            android:padding="8dp"
+            android:contentDescription="Back"
+            app:tint="@color/accent_primary" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="JARVIS CONFIG"
+            android:textColor="@color/accent_primary"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-black"
+            android:letterSpacing="-0.02"
+            android:textSize="20sp" />
+
+        <ImageView
+            android:id="@+id/headerSettingsIcon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_settings"
+            android:contentDescription="Settings"
+            app:tint="@color/accent_primary" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="64dp"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp"
+        android:fillViewport="false"
+        android:overScrollMode="always">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="24dp">
+
+            <!-- ACTIVE ENGINE BANNER -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/activeEngineBannerCard"
+                style="@style/SettingsCard"
+                app:cardBackgroundColor="#CC0D1B2A"
+                app:strokeColor="@color/success"
+                app:strokeWidth="1.5dp"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="⚡ ACTIVE SPEECH ENGINE"
+                            android:textColor="@color/success"
+                            android:fontFamily="sans-serif-black"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.08" />
+
+                        <TextView
+                            android:id="@+id/activeEngineBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp"
+                            android:paddingTop="3dp"
+                            android:paddingBottom="3dp"
+                            android:text="● ACTIVE"
+                            android:textColor="@color/success"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/activeEngineTitleText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Sarvam AI TTS (bulbul:v3)"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif-bold"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/activeEngineSubtext"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Voice: shubh | Lang: Hindi (hi-IN)"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ACCOUNT & SECURITY -->
+            <TextView style="@style/SettingsSectionLabel" android:text="ACCOUNT &amp; SECURITY" />
+
+            <com.google.android.material.card.MaterialCardView style="@style/SettingsCard">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- GEMINI API KEY -->
+                    <LinearLayout
+                        android:id="@+id/geminiKeyContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/apiKeyLabel"
+                            style="@style/SettingsFieldLabel"
+                            android:text="Gemini API Key" />
+                        
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+
+                            <EditText
+                                android:id="@+id/apiKeyInput"
+                                style="@style/SettingsInput"
+                                android:inputType="textPassword"
+                                android:paddingEnd="48dp"
+                                android:hint="Enter Gemini API key" />
+
+                            <ImageButton
+                                android:id="@+id/apiKeyVisibilityToggle"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:layout_marginEnd="6dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_visibility"
+                                android:contentDescription="Toggle API Key Visibility"
+                                app:tint="@color/text_secondary" />
+                        </RelativeLayout>
+                    </LinearLayout>
+
+                    <!-- GROQ API KEY -->
+                    <LinearLayout
+                        android:id="@+id/groqKeyContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="12dp">
+
+                        <TextView
+                            android:id="@+id/groqApiKeyLabel"
+                            style="@style/SettingsFieldLabel"
+                            android:text="Groq API Key" />
+
+                        <EditText
+                            android:id="@+id/groqApiKeyInput"
+                            style="@style/SettingsInput"
+                            android:inputType="textPassword"
+                            android:hint="Enter Groq API Key (gsk_...)" />
+                    </LinearLayout>
+
+                    <!-- SARVAM API KEY -->
+                    <LinearLayout
+                        android:id="@+id/sarvamKeyContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="12dp">
+
+                        <TextView
+                            android:id="@+id/sarvamApiKeyLabel"
+                            style="@style/SettingsFieldLabel"
+                            android:text="Sarvam AI API Key" />
+
+                        <EditText
+                            android:id="@+id/sarvamApiKeyInput"
+                            style="@style/SettingsInput"
+                            android:inputType="textPassword"
+                            android:hint="Enter Sarvam API Key (sk_...)" />
+                    </LinearLayout>
+
+                    <TextView
+                        style="@style/SettingsFieldLabel"
+                        android:layout_marginTop="14dp"
+                        android:text="User Name" />
+
+                    <EditText
+                        android:id="@+id/userNameInput"
+                        style="@style/SettingsInput"
+                        android:inputType="textPersonName"
+                        android:hint="Enter your name" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- VOICE & INTELLIGENCE -->
+            <TextView style="@style/SettingsSectionLabel" android:text="VOICE &amp; INTELLIGENCE" />
+
+            <com.google.android.material.card.MaterialCardView style="@style/SettingsCard">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- TTS Engine: Selectable Engine Buttons -->
+                    <TextView style="@style/SettingsFieldLabel" android:text="TTS Engine" />
+
+                    <LinearLayout
+                        android:id="@+id/ttsEngineButtonsRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+
+
+                    <!-- Gemini Voice: horizontal scrollable chips -->
+                    <TextView
+                        android:id="@+id/geminiVoiceLabel"
+                        style="@style/SettingsFieldLabel"
+                        android:layout_marginTop="18dp"
+                        android:text="Gemini Voice" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:overScrollMode="always">
+
+                        <LinearLayout
+                            android:id="@+id/geminiVoiceChipsRow"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal" />
+                    </HorizontalScrollView>
+
+                    <!-- Gemini Live Model -->
+                    <TextView
+                        android:id="@+id/geminiModelLabel"
+                        style="@style/SettingsFieldLabel"
+                        android:layout_marginTop="16dp"
+                        android:text="Gemini Live Model" />
+
+                    <FrameLayout
+                        android:id="@+id/geminiModelContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="46dp"
+                        android:layout_marginTop="4dp">
+
+                        <Spinner
+                            android:id="@+id/geminiModelSpinner"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/bg_spinner_field"
+                            android:popupBackground="@drawable/bg_dialog"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="32dp"
+                            android:spinnerMode="dropdown" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_gravity="end|center_vertical"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_chevron_down"
+                            app:tint="@color/accent_primary"
+                            android:importantForAccessibility="no" />
+                    </FrameLayout>
+
+                    <!-- Sarvam Voice: horizontal scrollable chips -->
+                    <TextView
+                        android:id="@+id/sarvamVoiceLabel"
+                        style="@style/SettingsFieldLabel"
+                        android:layout_marginTop="14dp"
+                        android:text="Sarvam Voice" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:overScrollMode="always">
+
+                        <LinearLayout
+                            android:id="@+id/sarvamVoiceChipsRow"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal" />
+                    </HorizontalScrollView>
+
+                    <!-- Sarvam Language + Preferred SIM, side by side -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="18dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/sarvamLangLabel"
+                                style="@style/SettingsFieldLabel"
+                                android:text="Sarvam Language" />
+
+                            <FrameLayout
+                                android:id="@+id/sarvamLangContainer"
+                                android:layout_width="match_parent"
+                                android:layout_height="46dp">
+
+                                <Spinner
+                                    android:id="@+id/sarvamLangSpinner"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:background="@drawable/bg_spinner_field"
+                                    android:popupBackground="@drawable/bg_dialog"
+                                    android:paddingStart="12dp"
+                                    android:paddingEnd="32dp"
+                                    android:spinnerMode="dropdown" />
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:layout_gravity="end|center_vertical"
+                                    android:layout_marginEnd="12dp"
+                                    android:src="@drawable/ic_chevron_down"
+                                    android:importantForAccessibility="no" />
+                            </FrameLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:orientation="vertical">
+
+                            <TextView style="@style/SettingsFieldLabel" android:text="Preferred SIM" />
+
+                            <FrameLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="46dp">
+
+                                <Spinner
+                                    android:id="@+id/simSpinner"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:background="@drawable/bg_spinner_field_green"
+                                    android:popupBackground="@drawable/bg_dialog"
+                                    android:paddingStart="12dp"
+                                    android:paddingEnd="32dp"
+                                    android:spinnerMode="dropdown" />
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:layout_gravity="end|center_vertical"
+                                    android:layout_marginEnd="12dp"
+                                    android:src="@drawable/ic_chevron_down"
+                                    app:tint="@color/success"
+                                    android:importantForAccessibility="no" />
+                            </FrameLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PERSONALITY MATRIX -->
+            <TextView style="@style/SettingsSectionLabel" android:text="PERSONALITY MATRIX" />
+
+            <com.google.android.material.card.MaterialCardView style="@style/SettingsCard">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.jarvis.assistant.ui.settings.SegmentedControl
+                        android:id="@+id/personalitySegmented"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp" />
+
+                    <TextView
+                        android:id="@+id/personalityDescriptionText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="italic"
+                        android:lineSpacingExtra="3dp"
+                        android:text="Warm, caring Hinglish companion with expressive replies." />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- PERMISSIONS -->
+            <TextView style="@style/SettingsSectionLabel" android:text="PERMISSIONS" />
+
+            <com.google.android.material.card.MaterialCardView style="@style/SettingsCard">
+                <LinearLayout
+                    android:id="@+id/accessibilityRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_settings_row"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Accessibility Settings"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif-medium"
+                        android:textSize="14sp" />
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:contentDescription="@null"
+                        app:tint="@color/text_secondary" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- SAVE BUTTON -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp">
+
+                <TextView
+                    android:id="@+id/saveButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:gravity="center"
+                    android:text="SAVE &amp; APPLY CONFIGURATION"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.04"
+                    android:background="@drawable/bg_save_button"
+                    android:elevation="4dp" />
+            </FrameLayout>
+
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

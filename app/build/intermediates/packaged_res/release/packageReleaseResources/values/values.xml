@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent_primary">#FFAA30</color>
+    <color name="accent_primary_dim">#884400</color>
+    <color name="accent_secondary">#FFCC66</color>
+    <color name="bg_base">#000000</color>
+    <color name="bg_elevated">#080808</color>
+    <color name="black">#000000</color>
+    <color name="border_hairline">#181818</color>
+    <color name="border_subtle">#222222</color>
+    <color name="danger">#FF5C7A</color>
+    <color name="orb_idle_end">#080808</color>
+    <color name="orb_idle_start">#141414</color>
+    <color name="orb_listening_end">#DD7700</color>
+    <color name="orb_listening_start">#FFAA30</color>
+    <color name="orb_speaking_end">#FFAA30</color>
+    <color name="orb_speaking_start">#FFD480</color>
+    <color name="orb_thinking_end">#884400</color>
+    <color name="orb_thinking_start">#FFCC66</color>
+    <color name="scrim">#B3000000</color>
+    <color name="success">#34D399</color>
+    <color name="surface_glass">#0E0E0E</color>
+    <color name="surface_glass_2">#141414</color>
+    <color name="text_on_accent">#000000</color>
+    <color name="text_primary">#EEEEEE</color>
+    <color name="text_secondary">#AAAAAA</color>
+    <color name="text_tertiary">#666666</color>
+    <color name="warning">#FFB454</color>
+    <color name="white">#FFFFFF</color>
+    <string name="accessibility_description">JARVIS needs this to open apps, click buttons, type text and navigate your phone on your behalf when you ask her to.</string>
+    <string name="app_name">JARVIS</string>
+    <string name="gcm_defaultSenderId" translatable="false">133761514499</string>
+    <string name="google_api_key" translatable="false">AIzaSyBnjtliWKmVL7KAkoVGuQcP6ZGczHMQTCo</string>
+    <string name="google_app_id" translatable="false">1:133761514499:android:0be78901982c07afab2236</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyBnjtliWKmVL7KAkoVGuQcP6ZGczHMQTCo</string>
+    <string name="google_storage_bucket" translatable="false">jarvis-ai-a09b2.firebasestorage.app</string>
+    <string name="project_id" translatable="false">jarvis-ai-a09b2</string>
+    <style name="Jarvis.ActivityTransition" parent="android:Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/activity_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/activity_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/activity_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/activity_close_exit</item>
+    </style>
+    <style name="SettingsCard">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="cardBackgroundColor">#CC1C1C2A</item>
+        <item name="cardCornerRadius">18dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">#332A2A3A</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+    <style name="SettingsDivider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:layout_marginStart">16dp</item>
+        <item name="android:background">@color/border_hairline</item>
+    </style>
+    <style name="SettingsFieldLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:layout_marginBottom">6dp</item>
+    </style>
+    <style name="SettingsInput">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">50dp</item>
+        <item name="android:background">@drawable/bg_input_field_focused</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_tertiary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="SettingsSectionLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:layout_marginTop">22dp</item>
+        <item name="android:layout_marginStart">4dp</item>
+    </style>
+    <style name="Theme.Jarvis" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent_primary</item>
+        <item name="colorPrimaryVariant">@color/accent_secondary</item>
+        <item name="colorOnPrimary">@color/text_on_accent</item>
+        <item name="colorSecondary">@color/accent_secondary</item>
+        <item name="colorControlHighlight">#337C6CFF</item>
+        <item name="android:windowBackground">@color/bg_base</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/bg_base</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowContentTransitions">true</item>
+        <item name="android:windowAnimationStyle">@style/Jarvis.ActivityTransition</item>
+    </style>
+    <style name="Theme.Jarvis.Dialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="colorPrimary">@color/accent_primary</item>
+        <item name="colorAccent">@color/accent_primary</item>
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+</resources>
