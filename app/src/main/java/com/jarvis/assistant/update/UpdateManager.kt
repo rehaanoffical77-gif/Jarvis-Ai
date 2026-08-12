@@ -24,17 +24,18 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * In-App Auto-Updater Manager for Jarvis AI.
- * Enables direct APK installations to check for remote updates, download APKs,
- * and prompt the system package installer.
+ * Handles remote version checking, background APK streaming with status verification,
+ * fallback direct downloader, and system package installer launch via FileProvider.
  */
 object UpdateManager {
 
     private const val TAG = "UpdateManager"
 
-    // Default remote version metadata URL (Can also be retrieved via Firebase Remote Config)
+    // Default remote version metadata URL
     private const val DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/version.json"
 
     @Keep
@@ -73,7 +74,10 @@ object UpdateManager {
     private fun fetchRemoteVersionInfo(url: String): UpdateInfo? {
         return try {
             val client = OkHttpClient()
-            val request = Request.Builder().url(url).build()
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 JarvisAI-Android")
+                .build()
             val response = client.newCall(request).execute()
 
             if (!response.isSuccessful) return null
@@ -127,18 +131,19 @@ object UpdateManager {
     }
 
     /**
-     * Downloads the APK file using DownloadManager and initiates installation.
+     * Downloads the APK file using DownloadManager with status query verification
+     * and automatic fallback to direct HTTP downloader.
      */
     private fun startApkDownload(context: Context, updateInfo: UpdateInfo) {
         if (updateInfo.apkUrl.isBlank()) {
-            Toast.makeText(context, "Invalid update package link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Invalid update package URL", Toast.LENGTH_SHORT).show()
             return
         }
 
         // Check install package permission for Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.packageManager.canRequestPackageInstalls()) {
-                Toast.makeText(context, "Please allow install permission to update Jarvis AI", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Please grant permission to install updates", Toast.LENGTH_LONG).show()
                 val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                     data = Uri.parse("package:${context.packageName}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -158,43 +163,108 @@ object UpdateManager {
             destinationFile.delete()
         }
 
-        val request = DownloadManager.Request(downloadUri).apply {
-            setTitle("Downloading Jarvis AI v${updateInfo.versionName}")
-            setDescription("Fetching update file...")
-            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            setDestinationUri(Uri.fromFile(destinationFile))
-            setMimeType("application/vnd.android.package-archive")
-        }
+        try {
+            val request = DownloadManager.Request(downloadUri).apply {
+                setTitle("Downloading Jarvis AI v${updateInfo.versionName}")
+                setDescription("Fetching update package...")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationUri(Uri.fromFile(destinationFile))
+                setMimeType("application/vnd.android.package-archive")
+                addRequestHeader("User-Agent", "Mozilla/5.0 JarvisAI-Android")
+            }
 
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadId = downloadManager.enqueue(request)
+            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val downloadId = downloadManager.enqueue(request)
 
-        // Register receiver for download completion
-        val onComplete = object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, intent: Intent?) {
-                val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
-                if (id == downloadId) {
-                    try {
-                        context.unregisterReceiver(this)
-                    } catch (e: Exception) {
-                        // Receiver already unregistered
+            val onComplete = object : BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: Intent?) {
+                    val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                    if (id == downloadId) {
+                        try {
+                            context.unregisterReceiver(this)
+                        } catch (e: Exception) {
+                            // Already unregistered
+                        }
+
+                        // Query DownloadManager status
+                        val query = DownloadManager.Query().setFilterById(downloadId)
+                        val cursor = downloadManager.query(query)
+                        var success = false
+
+                        if (cursor != null && cursor.moveToFirst()) {
+                            val statusCol = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                            val status = if (statusCol >= 0) cursor.getInt(statusCol) else -1
+                            if (status == DownloadManager.STATUS_SUCCESSFUL && destinationFile.exists() && destinationFile.length() > 0) {
+                                success = true
+                                installApk(context, destinationFile)
+                            }
+                            cursor.close()
+                        }
+
+                        if (!success) {
+                            Log.w(TAG, "DownloadManager failed, trying fallback direct download...")
+                            downloadDirectFallback(context, updateInfo.apkUrl, destinationFile)
+                        }
                     }
-                    installApk(context, destinationFile)
                 }
             }
-        }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(
-                onComplete,
-                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-                Context.RECEIVER_EXPORTED
-            )
-        } else {
-            context.registerReceiver(
-                onComplete,
-                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(
+                    onComplete,
+                    IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                    Context.RECEIVER_EXPORTED
+                )
+            } else {
+                context.registerReceiver(
+                    onComplete,
+                    IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "DownloadManager failed to enqueue, attempting direct download", e)
+            downloadDirectFallback(context, updateInfo.apkUrl, destinationFile)
+        }
+    }
+
+    /**
+     * Fallback direct OkHttp downloader in case DownloadManager fails or is blocked.
+     */
+    private fun downloadDirectFallback(context: Context, apkUrl: String, destinationFile: File) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url(apkUrl)
+                    .header("User-Agent", "Mozilla/5.0 JarvisAI-Android")
+                    .build()
+                val response = client.newCall(request).execute()
+
+                if (response.isSuccessful && response.body != null) {
+                    val inputStream = response.body!!.byteStream()
+                    val outputStream = FileOutputStream(destinationFile)
+                    inputStream.use { input ->
+                        outputStream.use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    if (destinationFile.exists() && destinationFile.length() > 0) {
+                        withContext(Dispatchers.Main) {
+                            installApk(context, destinationFile)
+                        }
+                        return@launch
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to download update APK. Please check connection.", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Direct download fallback failed", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Update error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -202,8 +272,9 @@ object UpdateManager {
      * Triggers Android system package installer using FileProvider.
      */
     fun installApk(context: Context, apkFile: File) {
-        if (!apkFile.exists()) {
-            Log.e(TAG, "APK file does not exist: ${apkFile.absolutePath}")
+        if (!apkFile.exists() || apkFile.length() == 0L) {
+            Log.e(TAG, "APK file is missing or empty: ${apkFile.absolutePath}")
+            Toast.makeText(context, "Downloaded APK is invalid or corrupt", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -227,7 +298,7 @@ object UpdateManager {
             context.startActivity(intent)
         } catch (e: Exception) {
             Log.e(TAG, "Error launching package installer", e)
-            Toast.makeText(context, "Failed to launch installer: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Failed to launch package installer: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }
