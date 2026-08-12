@@ -40,3 +40,6 @@ Thumbs.db
 
 # Keep release APK and version.json in root if explicitly tracked
 !Jarvis-AI-Release.apk
+
+# Private Local Admin Panel (Do not push to GitHub)
+admin-panel/
