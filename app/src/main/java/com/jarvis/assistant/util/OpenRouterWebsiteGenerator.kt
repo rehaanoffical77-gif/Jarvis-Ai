@@ -14,7 +14,8 @@ import java.net.URL
 
 /**
  * OpenRouter-Exclusive Website Generator for Jarvis AI.
- * Generates custom, responsive HTML, CSS, and JS websites strictly using OpenRouter API.
+ * Includes robust JSON substring extraction, Markdown code-block regex parsing,
+ * and automatic fallback model retries so code generation never fails.
  */
 object OpenRouterWebsiteGenerator {
 
@@ -107,6 +108,7 @@ object OpenRouterWebsiteGenerator {
 
     /**
      * Generates HTML, CSS, and JS website files strictly using OpenRouter API.
+     * Retries with fallback models if the selected model fails or is unavailable.
      */
     suspend fun generateWebsite(
         context: Context,
@@ -123,34 +125,37 @@ object OpenRouterWebsiteGenerator {
             )
         }
 
-        val model = getSelectedModel(context)
+        val primaryModel = getSelectedModel(context)
+        val modelsToTry = mutableListOf(primaryModel)
+        modelsToTry.addAll(FALLBACK_FREE_MODELS.filter { it != primaryModel })
+
         val cleanName = websiteName.ifBlank { "JarvisWebsite" }
             .replace(Regex("[^a-zA-Z0-9_-]"), "_")
 
         val systemPrompt = """
             You are a world-class senior web designer and developer. Build an ULTRA-PROFESSIONAL, STUNNING, HIGH-CONVERTING, fully responsive website based strictly on the user's business request.
 
-            CRITICAL FORMATTING & TECHNICAL REQUIREMENTS:
-            1. TECH STACK: Pure HTML5, CSS3, and JavaScript (Vanilla JS). Do NOT use React, Vue, Python, or external build tools.
+            CRITICAL TECHNICAL REQUIREMENTS:
+            1. Write pure HTML5, CSS3, and JavaScript (Vanilla JS). Do NOT use React, Vue, Python, or external build tools.
             2. LINKING & ASSETS:
                - Link style.css via `<link rel="stylesheet" href="style.css">`.
                - Link script.js via `<script src="script.js"></script>`.
                - Import Google Fonts (e.g. Outfit, Inter, Poppins, or Playfair Display) in `<head>`.
-               - Use high-res Unsplash images (`https://images.unsplash.com/photo-...`) matching the exact business concept.
-            3. SECTIONS & CONTENT (Tailored specifically to requested business niche e.g. Gym, Salon, Bakery, Tech, Real Estate):
-               - Header & Sticky Nav with logo, navigation links, and primary Call-To-Action button.
-               - Hero Section: Full-bleed hero banner with gradient overlay, bold headline, subheadline, and primary/secondary CTA buttons.
-               - Features / Highlights Grid: 3-4 feature cards relevant to the business.
+               - Use high-resolution Unsplash image URLs (`https://images.unsplash.com/photo-...`) matching the exact business topic.
+            3. SECTIONS & CONTENT (Tailored specifically to the requested business niche):
+               - Header & Sticky Nav with logo, links, and Call-To-Action button.
+               - Hero Section: Full-bleed hero banner with dark gradient overlay, headline, subheadline, and primary/secondary CTA buttons.
+               - Features / Highlights Grid: 3-4 feature cards.
                - Products / Services / Membership Grid: Relevant items, prices, descriptions, and Action buttons.
                - About / Story Section: Brand background and image showcase.
-               - Testimonials: Customer review cards with 5-star ratings.
+               - Testimonials: Review cards with 5-star ratings.
                - Interactive Contact / Booking Form.
                - Footer: Brand details, social media links, and copyright line.
             4. STYLING & RESPONSIVENESS:
-               - Use CSS variables (`:root`) for color palette matching the business theme.
+               - Use CSS variables (`:root`) for color palette.
                - Full Mobile Responsiveness with `@media (max-width: 768px)`.
             5. OUTPUT FORMAT:
-               Respond ONLY with a valid raw JSON object containing 3 keys: "html", "css", and "js". Do NOT wrap the JSON inside markdown ```json blocks.
+               Respond ONLY with a valid JSON object containing 3 keys: "html", "css", and "js".
                JSON Structure:
                {
                  "html": "<!DOCTYPE html>...",
@@ -164,68 +169,76 @@ object OpenRouterWebsiteGenerator {
         var rawHtml = ""
         var rawCss = ""
         var rawJs = ""
+        var lastErrorMessage = ""
 
-        try {
-            val payload = JSONObject().apply {
-                put("model", model)
-                put("messages", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("role", "system")
-                        put("content", systemPrompt)
+        for (modelCandidate in modelsToTry) {
+            Log.d(TAG, "Attempting website generation with OpenRouter model: $modelCandidate")
+            try {
+                val payload = JSONObject().apply {
+                    put("model", modelCandidate)
+                    put("messages", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("role", "system")
+                            put("content", systemPrompt)
+                        })
+                        put(JSONObject().apply {
+                            put("role", "user")
+                            put("content", userPrompt)
+                        })
                     })
-                    put(JSONObject().apply {
-                        put("role", "user")
-                        put("content", userPrompt)
-                    })
-                })
-                put("temperature", 0.7)
-            }
-
-            val connection = (URL(OPENROUTER_API_URL).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("Authorization", "Bearer $openRouterKey")
-                setRequestProperty("HTTP-Referer", "https://github.com/jarvis-ai")
-                setRequestProperty("X-Title", "JARVIS AI Assistant")
-                doOutput = true
-                connectTimeout = 30000
-                readTimeout = 60000
-            }
-
-            connection.outputStream.use { os ->
-                os.write(payload.toString().toByteArray(Charsets.UTF_8))
-            }
-
-            if (connection.responseCode == 200) {
-                val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                val choices = JSONObject(responseText).optJSONArray("choices")
-                if (choices != null && choices.length() > 0) {
-                    val rawContent = choices.getJSONObject(0).getJSONObject("message").optString("content", "").trim()
-                    val parsed = parseJsonCodeResponse(rawContent)
-                    rawHtml = parsed.first
-                    rawCss = parsed.second
-                    rawJs = parsed.third
+                    put("temperature", 0.7)
                 }
-            } else {
-                val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-                Log.e(TAG, "OpenRouter API error HTTP ${connection.responseCode}: $errText")
-                return@withContext GenerationResult(
-                    success = false,
-                    message = "OpenRouter API returned error ${connection.responseCode}. Please check your OpenRouter API key or model selection in Settings."
-                )
+
+                val connection = (URL(OPENROUTER_API_URL).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Authorization", "Bearer $openRouterKey")
+                    setRequestProperty("HTTP-Referer", "https://github.com/jarvis-ai")
+                    setRequestProperty("X-Title", "JARVIS AI Assistant")
+                    doOutput = true
+                    connectTimeout = 35000
+                    readTimeout = 75000
+                }
+
+                connection.outputStream.use { os ->
+                    os.write(payload.toString().toByteArray(Charsets.UTF_8))
+                }
+
+                val responseCode = connection.responseCode
+                if (responseCode == 200) {
+                    val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+                    val choices = JSONObject(responseText).optJSONArray("choices")
+                    if (choices != null && choices.length() > 0) {
+                        val rawContent = choices.getJSONObject(0).getJSONObject("message").optString("content", "").trim()
+                        val parsed = parseJsonCodeResponse(rawContent)
+                        if (parsed.first.isNotBlank()) {
+                            rawHtml = parsed.first
+                            rawCss = parsed.second
+                            rawJs = parsed.third
+                            Log.d(TAG, "Successfully generated code with model: $modelCandidate")
+                            break // Success!
+                        }
+                    }
+                } else if (responseCode == 401) {
+                    return@withContext GenerationResult(
+                        success = false,
+                        message = "OpenRouter API Key is invalid (HTTP 401). Please check and re-enter your OpenRouter API Key in Settings -> Website Builder."
+                    )
+                } else {
+                    val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    Log.w(TAG, "OpenRouter model $modelCandidate returned HTTP $responseCode: $errText")
+                    lastErrorMessage = "HTTP $responseCode: $errText"
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "OpenRouter exception with model $modelCandidate: ${e.message}")
+                lastErrorMessage = e.message ?: "Network error"
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "OpenRouter generation failed: ${e.message}")
-            return@withContext GenerationResult(
-                success = false,
-                message = "OpenRouter generation failed: ${e.message}"
-            )
         }
 
         if (rawHtml.isBlank()) {
             return@withContext GenerationResult(
                 success = false,
-                message = "OpenRouter returned empty code. Please try selecting a different free model in Settings -> Website Builder."
+                message = "OpenRouter generation failed ($lastErrorMessage). Please check your internet connection or try a different OpenRouter API Key/Model in Settings."
             )
         }
 
@@ -241,19 +254,19 @@ object OpenRouterWebsiteGenerator {
         for (i in 1..htmlLines.size) {
             val currHtml = htmlLines.take(i).joinToString("\n")
             com.jarvis.assistant.service.WebsiteOverlayService.updateProgress(context, websiteName, currHtml, "", "")
-            try { kotlinx.coroutines.delay(100L) } catch (_: Exception) {}
+            try { kotlinx.coroutines.delay(80L) } catch (_: Exception) {}
         }
 
         for (i in 1..cssLines.size) {
             val currCss = cssLines.take(i).joinToString("\n")
             com.jarvis.assistant.service.WebsiteOverlayService.updateProgress(context, websiteName, htmlContent, currCss, "")
-            try { kotlinx.coroutines.delay(80L) } catch (_: Exception) {}
+            try { kotlinx.coroutines.delay(60L) } catch (_: Exception) {}
         }
 
         for (i in 1..jsLines.size) {
             val currJs = jsLines.take(i).joinToString("\n")
             com.jarvis.assistant.service.WebsiteOverlayService.updateProgress(context, websiteName, htmlContent, cssContent, currJs)
-            try { kotlinx.coroutines.delay(80L) } catch (_: Exception) {}
+            try { kotlinx.coroutines.delay(60L) } catch (_: Exception) {}
         }
 
         // Save files to Documents/JarvisWebsites/[cleanName]
@@ -287,22 +300,53 @@ object OpenRouterWebsiteGenerator {
         )
     }
 
+    /**
+     * Bulletproof parser for LLM responses. Extracts JSON substrings or falls back to Markdown code blocks.
+     */
     private fun parseJsonCodeResponse(rawContent: String): Triple<String, String, String> {
-        var jsonString = rawContent.trim()
-        if (jsonString.startsWith("```json")) jsonString = jsonString.removePrefix("```json").trim()
-        else if (jsonString.startsWith("```")) jsonString = jsonString.removePrefix("```").trim()
-        if (jsonString.endsWith("```")) jsonString = jsonString.removeSuffix("```").trim()
+        val cleanContent = rawContent.trim()
 
-        return try {
-            val parsedCode = JSONObject(jsonString)
-            Triple(
-                parsedCode.optString("html", ""),
-                parsedCode.optString("css", ""),
-                parsedCode.optString("js", "")
-            )
-        } catch (e: Exception) {
-            Triple("", "", "")
+        // Strategy 1: Find first '{' and last '}' substring to extract pure JSON object
+        val firstBrace = cleanContent.indexOf('{')
+        val lastBrace = cleanContent.lastIndexOf('}')
+
+        if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+            val jsonSubstring = cleanContent.substring(firstBrace, lastBrace + 1)
+            try {
+                val parsedCode = JSONObject(jsonSubstring)
+                val html = parsedCode.optString("html", "").trim()
+                val css = parsedCode.optString("css", "").trim()
+                val js = parsedCode.optString("js", "").trim()
+
+                if (html.isNotBlank()) {
+                    return Triple(html, css, js)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "JSON substring extraction failed: ${e.message}")
+            }
         }
+
+        // Strategy 2: Extract Markdown code blocks directly using Regex
+        var html = ""
+        var css = ""
+        var js = ""
+
+        val htmlMatch = Regex("```(?:html)?\\s*(<!DOCTYPE html[\\s\\S]*?|\\<html[\\s\\S]*?\\</html\\>)\\s*```", RegexOption.IGNORE_CASE).find(cleanContent)
+        if (htmlMatch != null) {
+            html = htmlMatch.groupValues[1].trim()
+        }
+
+        val cssMatch = Regex("```(?:css)?\\s*([\\s\\S]*?:root[\\s\\S]*?|\\*\\s*\\{[\\s\\S]*?\\})\\s*```", RegexOption.IGNORE_CASE).find(cleanContent)
+        if (cssMatch != null) {
+            css = cssMatch.groupValues[1].trim()
+        }
+
+        val jsMatch = Regex("```(?:js|javascript)?\\s*([\\s\\S]*?console\\.log[\\s\\S]*?|[\\s\\S]*?function[\\s\\S]*?)\\s*```", RegexOption.IGNORE_CASE).find(cleanContent)
+        if (jsMatch != null) {
+            js = jsMatch.groupValues[1].trim()
+        }
+
+        return Triple(html, css, js)
     }
 
     private fun cleanCodeString(str: String): String {

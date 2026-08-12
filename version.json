@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2.0",
+  "versionCode": 4,
+  "versionName": "1.3.0",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Restricted Website Generation exclusively to OpenRouter API\n• OpenRouter API Key required notice if key is missing\n• Fixed JARVIS voice response phrasing to natural 1st-person (\"Oh yeah Sir, I have started coding your website!\")",
+  "changelog": "• Fixed OpenRouter Code Writing: Added JSON substring extraction & Markdown code-block regex parsing\n• Added Automatic Fallback Model Retries (Llama 3.3 70B, DeepSeek R1, Qwen 2.5, Mistral)\n• Enhanced error reporting for invalid OpenRouter keys & network timeouts",
   "forceUpdate": false
 }
