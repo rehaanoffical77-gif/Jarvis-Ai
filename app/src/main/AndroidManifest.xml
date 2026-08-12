@@ -19,14 +19,18 @@
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Required on Android 11+ so JARVIS can see and launch every installed app,
          not just the handful visible by default under package visibility rules. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".JarvisApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
@@ -34,6 +38,16 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false"
         tools:targetApi="34">
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <activity
             android:name=".ui.auth.LoginActivity"
@@ -50,13 +64,25 @@
         <activity
             android:name=".ui.main.MainActivity"
             android:launchMode="singleTop"
-            android:exported="true"
+            android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Jarvis" />
 
         <activity
             android:name=".ui.settings.SettingsActivity"
-            android:exported="true"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Jarvis" />
+
+        <activity
+            android:name=".ui.settings.WebsiteBuilderActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Jarvis" />
+
+        <activity
+            android:name=".ui.settings.CodeEditorActivity"
+            android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Jarvis" />
 
@@ -96,6 +122,15 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating 3D Orb Home Screen HUD Widget" />
+        </service>
+
+        <service
+            android:name=".service.WebsiteOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Live Code Generation Floating Overlay Window" />
         </service>
 
         <service

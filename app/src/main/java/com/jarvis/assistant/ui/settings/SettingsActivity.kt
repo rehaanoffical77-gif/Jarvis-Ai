@@ -44,6 +44,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var personalityDescriptionText: TextView
     private lateinit var saveButton: TextView
     private lateinit var backBtn: View
+    private lateinit var headerSettingsIcon: View
 
     private var isApiKeyVisible = false
     private var selectedVoiceIndex = 0
@@ -109,11 +110,17 @@ class SettingsActivity : AppCompatActivity() {
         personalityDescriptionText = findViewById(R.id.personalityDescriptionText)
         saveButton = findViewById(R.id.saveButton)
         backBtn = findViewById(R.id.backBtn)
+        headerSettingsIcon = findViewById(R.id.headerSettingsIcon)
     }
 
     private fun wireInteractions() {
         backBtn.pressFeedback()
         backBtn.setOnClickListener { finish() }
+
+        headerSettingsIcon.pressFeedback()
+        headerSettingsIcon.setOnClickListener {
+            startActivity(Intent(this, WebsiteBuilderActivity::class.java))
+        }
 
         apiKeyVisibilityToggle.setOnClickListener {
             isApiKeyVisible = !isApiKeyVisible

@@ -153,8 +153,8 @@ class GeminiLiveClient(
                             put("name", "open_app")
                             put("description",
                                 "Opens an app installed on the user's phone, e.g. YouTube, " +
-                                "WhatsApp, Camera, Settings. Call this whenever the user asks " +
-                                "to open, launch, or start any app by name.")
+                                "WhatsApp, Camera, Settings. If multiple instances/dual apps exist, " +
+                                "app_number specifies 1 or 2.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {
@@ -164,6 +164,11 @@ class GeminiLiveClient(
                                             "The name of the app to open, as the user said it " +
                                             "(e.g. \"YouTube\", \"WhatsApp\").")
                                     })
+                                    put("app_number", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description",
+                                            "Optional 1-based index (1 or 2) when opening a dual/cloned app instance or specific app selection.")
+                                    })
                                 })
                                 put("required", JSONArray().put("app_name"))
                             })
@@ -171,10 +176,7 @@ class GeminiLiveClient(
                         put(JSONObject().apply {
                             put("name", "search_and_play_youtube")
                             put("description",
-                                "Searches YouTube for a video/song/topic and plays the top " +
-                                "result immediately. Use whenever the user asks to play " +
-                                "something on YouTube, e.g. \"play Tum Hi Ho on YouTube\", " +
-                                "\"YouTube pe Arijit Singh chalao\".")
+                                "Searches YouTube and plays a video on screen ONLY when the user EXPLICITLY asks to play on YouTube, e.g. \"play Tum Hi Ho on YouTube\", \"YouTube pe Arijit Singh chalao\". For standard song requests like \"play Admiring You\" or \"play Drill Song\", use play_ad_free_music instead.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {
@@ -309,10 +311,28 @@ class GeminiLiveClient(
                             })
                         })
                         put(JSONObject().apply {
+                            put("name", "create_website")
+                            put("description",
+                                "Creates a complete website (HTML, CSS, JS only) for a business or topic using OpenRouter free models and saves it to local device storage (e.g. \"create a bakery website for Sweet Treats\", \"build a website for my coffee shop\", \"JARVIS create a portfolio website\").")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("website_name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Name of the website, business, or company (e.g. \"Sweet Treats Bakery\", \"Roasted Beans Cafe\").")
+                                    })
+                                    put("business_description", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Description of the business, features, or design requirements for the website.")
+                                    })
+                                })
+                                put("required", JSONArray().put("website_name"))
+                            })
+                        })
+                        put(JSONObject().apply {
                             put("name", "search_in_chrome")
                             put("description",
-                                "Opens Google Chrome and searches for a topic, question, or URL. Use whenever the user asks to " +
-                                "search in Chrome or Google (e.g. \"search xyz in Chrome\", \"Chrome pe search karo xyz\").")
+                                "Opens Google Chrome and searches for a topic/question, or directly opens a website URL (e.g. \"search xyz in Chrome\", \"open website github.com\", \"open rehaan.com\", \"open rehaan.in\", \"visit wikipedia.org\").")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {
@@ -322,6 +342,79 @@ class GeminiLiveClient(
                                     })
                                 })
                                 put("required", JSONArray().put("query"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "download_song")
+                            put("description",
+                                "Searches and downloads a song/MP3 file on the user's mobile phone via Chrome research and background downloader (e.g. 'download Tum Hi Ho song', 'song download Kesariya', 'download mp3 song').")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("song_name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Name of the song or title to download (e.g. \"Tum Hi Ho\", \"Kesariya\").")
+                                    })
+                                    put("artist", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional artist or movie name (e.g. \"Arijit Singh\").")
+                                    })
+                                })
+                                put("required", JSONArray().put("song_name"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "send_whatsapp_message")
+                            put("description",
+                                "Sends a WhatsApp message hands-free to a contact by name (e.g. \"message Rahul that I will be late\", \"WhatsApp Priya 'See you soon'\", \"send message to Dad: I reached home\"). If 2 WhatsApp apps exist and app_number is not specified, it asks the user 1 or 2.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("recipient_name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Name of the contact as spoken by the user (e.g. \"Rahul\", \"Priya\", \"Dad\").")
+                                    })
+                                    put("message", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The text message content to send to the recipient.")
+                                    })
+                                    put("app_number", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Optional 1-based index (1 or 2) if dual WhatsApp is installed and user specified 1 or 2.")
+                                    })
+                                    put("confirmed", JSONObject().apply {
+                                        put("type", "BOOLEAN")
+                                        put("description", "Set to true ONLY AFTER the user confirms \"Yes\" to send the message to the requested contact name.")
+                                    })
+                                })
+                                put("required", JSONArray().apply { put("recipient_name"); put("message") })
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "whatsapp_call")
+                            put("description",
+                                "Initiates a WhatsApp voice call or WhatsApp video call to a contact (e.g. \"WhatsApp call Mom\", \"WhatsApp video call Rahul\", \"call Mom on WhatsApp\", \"video call Rahul on WhatsApp\").")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("recipient_name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Name of the contact to call as spoken by the user (e.g. \"Mom\", \"Rahul\").")
+                                    })
+                                    put("call_type", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "\"voice\" for voice call (\"WhatsApp call Mom\") or \"video\" for video call (\"WhatsApp video call Rahul\").")
+                                    })
+                                    put("app_number", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Optional 1-based index (1 or 2) if dual WhatsApp is installed.")
+                                    })
+                                    put("confirmed", JSONObject().apply {
+                                        put("type", "BOOLEAN")
+                                        put("description", "Set to true ONLY AFTER the user confirms \"Yes\" to start the call to the requested contact.")
+                                    })
+                                })
+                                put("required", JSONArray().apply { put("recipient_name"); put("call_type") })
                             })
                         })
                         put(JSONObject().apply {
@@ -422,6 +515,174 @@ class GeminiLiveClient(
                                 })
                                 put("required", JSONArray().put("passcode"))
                             })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "delete_whatsapp_message")
+                            put("description",
+                                "Deletes a message in WhatsApp chat. Target can be 'everyone' ('delete for everyone', 'delete for all') or 'me' ('delete for me'). E.g. 'delete this message for everyone', 'delete WhatsApp message for me'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("delete_target", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "'everyone' to delete for everyone, or 'me' to delete for me.")
+                                    })
+                                })
+                                put("required", JSONArray().put("delete_target"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "smart_screen_scroll")
+                            put("description",
+                                "Controls screen scrolling and Reels/Shorts auto-changing. Actions: 'scroll_up', 'scroll_down', 'scroll_to_top', 'scroll_to_bottom', 'next_reel', 'prev_reel'. E.g. 'scroll down', 'go to top', 'next reel', 'previous short'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Scroll action: 'scroll_up', 'scroll_down', 'scroll_to_top', 'scroll_to_bottom', 'next_reel', 'prev_reel'.")
+                                    })
+                                })
+                                put("required", JSONArray().put("action"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "set_alarm")
+                            put("description",
+                                "Sets an exact alarm on device. E.g. 'set an alarm for 7:30 AM', 'alarm for 6 PM', 'set alarm at 8:00'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("hour", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Hour in 24-hour format (0-23).")
+                                    })
+                                    put("minute", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Minute (0-59).")
+                                    })
+                                    put("label", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional label or message for the alarm.")
+                                    })
+                                })
+                                put("required", JSONArray().apply { put("hour"); put("minute") })
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "set_timer")
+                            put("description",
+                                "Sets a countdown timer on device. E.g. 'set a timer for 5 minutes', '10 minutes timer', 'timer for 30 seconds'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("seconds", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Timer duration in total seconds.")
+                                    })
+                                    put("label", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional timer label.")
+                                    })
+                                })
+                                put("required", JSONArray().put("seconds"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "set_reminder")
+                            put("description",
+                                "Sets a reminder task alert. E.g. 'remind me to buy milk in 15 minutes', 'remind me about meeting'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("title", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Reminder title or note.")
+                                    })
+                                    put("delay_minutes", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Delay in minutes from now.")
+                                    })
+                                })
+                                put("required", JSONArray().apply { put("title"); put("delay_minutes") })
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "get_system_info")
+                            put("description",
+                                "Checks system battery status, date/time, or local weather forecast. E.g. 'what is my battery level?', 'what date is it?', 'what is the weather in Delhi?'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("query_type", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "'battery', 'datetime', 'weather', or 'all'.")
+                                    })
+                                    put("city", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional city name for weather forecast.")
+                                    })
+                                })
+                                put("required", JSONArray().put("query_type"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "control_camera")
+                            put("description",
+                                "Takes photos, captures selfies, or records videos with countdown timer. E.g. 'take a photo', 'take a selfie in 3 seconds', 'record a video'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "'take_photo', 'take_selfie', or 'record_video'.")
+                                    })
+                                    put("timer_seconds", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Timer delay in seconds (0 for immediate).")
+                                    })
+                                })
+                                put("required", JSONArray().put("action"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "analyze_scene")
+                            put("description",
+                                "Analyzes camera or screen visual view. Actions: 'read_text' (OCR), 'object_recognition', 'describe_scene', 'full_analysis'. E.g. 'read this text', 'what object is this?', 'what do you see?'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("mode", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "'read_text', 'object_recognition', 'describe_scene', or 'full_analysis'.")
+                                    })
+                                })
+                                put("required", JSONArray().put("mode"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "control_flashlight")
+                            put("description",
+                                "Controls device flashlight (torch) toggle and brightness. E.g. 'turn on torch', 'flashlight off', 'toggle torch', 'set flashlight brightness 50%'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "'on', 'off', 'toggle', or 'brightness'.")
+                                    })
+                                    put("brightness_level", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Optional brightness percentage level from 1 to 100.")
+                                    })
+                                })
+                                put("required", JSONArray().put("action"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "show_code_preview_bar")
+                            put("description",
+                                "Re-opens or shows the website code preview bar overlay on screen when the user asks to see or open the code preview window (e.g. 'open code review bar', 'show preview bar', 'open website window').")
                         })
                         put(JSONObject().apply {
                             put("name", "shutdown_jarvis")

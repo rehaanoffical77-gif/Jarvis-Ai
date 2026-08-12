@@ -29,7 +29,7 @@ object ContactCaller {
 
     private fun cleanQueryString(raw: String): String {
         var q = raw.trim().lowercase()
-        val prefixes = listOf("call ", "phone ", "dial ", "contact ", "to ", "my ", "please ")
+        val prefixes = listOf("message ", "send message to ", "send whatsapp to ", "whatsapp ", "open contact ", "open ", "call ", "phone ", "dial ", "contact ", "to ", "my ", "please ")
         var changed = true
         while (changed) {
             changed = false
@@ -46,7 +46,7 @@ object ContactCaller {
     /**
      * Looks up contacts stored on the device, matching case-insensitively and flexibly.
      */
-    private fun findMatches(context: Context, spokenName: String): List<Contact> {
+    fun findMatches(context: Context, spokenName: String): List<Contact> {
         if (!hasPermission(context, Manifest.permission.READ_CONTACTS)) return emptyList()
 
         val cleanQuery = cleanQueryString(spokenName)
@@ -98,31 +98,41 @@ object ContactCaller {
         }
         if (alphaMatches.isNotEmpty()) return alphaMatches
 
-        // 3. Name starts with cleanQuery
-        val startsWithMatches = distinctContacts.filter {
-            it.name.lowercase().startsWith(cleanQuery)
+        // 3. Contact full name starts with cleanQuery (query must be at least 2 chars)
+        if (cleanQuery.length >= 2) {
+            val startsWithMatches = distinctContacts.filter {
+                it.name.lowercase().startsWith(cleanQuery)
+            }
+            if (startsWithMatches.isNotEmpty()) return startsWithMatches
         }
-        if (startsWithMatches.isNotEmpty()) return startsWithMatches
 
-        // 4. Any word in contact name starts with or equals cleanQuery
-        val wordMatches = distinctContacts.filter { c ->
-            val words = c.name.lowercase().split(Regex("\\s+"))
-            words.any { word -> word == cleanQuery || word.startsWith(cleanQuery) || cleanQuery.startsWith(word) }
+        // 4. Any word in contact name exactly equals cleanQuery
+        val exactWordMatches = distinctContacts.filter { c ->
+            val words = c.name.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
+            words.any { word -> word == cleanQuery }
         }
-        if (wordMatches.isNotEmpty()) return wordMatches
+        if (exactWordMatches.isNotEmpty()) return exactWordMatches
 
-        // 5. Contact name contains cleanQuery or vice versa
-        val containsMatches = distinctContacts.filter { c ->
-            val nameLower = c.name.lowercase()
-            nameLower.contains(cleanQuery) || cleanQuery.contains(nameLower)
+        // 5. Any word in contact name starts with cleanQuery (query must be at least 3 chars)
+        if (cleanQuery.length >= 3) {
+            val wordStartsWithMatches = distinctContacts.filter { c ->
+                val words = c.name.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
+                words.any { word -> word.startsWith(cleanQuery) }
+            }
+            if (wordStartsWithMatches.isNotEmpty()) return wordStartsWithMatches
         }
-        if (containsMatches.isNotEmpty()) return containsMatches
 
-        // 6. Alphanumeric substring match
-        return distinctContacts.filter { c ->
-            val cleanName = c.name.lowercase().replace(Regex("[^a-z0-9]"), "")
-            cleanName.contains(rawCleanQuery) || rawCleanQuery.contains(cleanName)
+        // 6. Query contains exact word matching a contact name word (words must be at least 3 chars)
+        val queryWords = cleanQuery.split(Regex("\\s+")).filter { it.length >= 3 }
+        if (queryWords.isNotEmpty()) {
+            val queryWordMatches = distinctContacts.filter { c ->
+                val contactWords = c.name.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length >= 3 }
+                contactWords.any { cWord -> queryWords.contains(cWord) }
+            }
+            if (queryWordMatches.isNotEmpty()) return queryWordMatches
         }
+
+        return emptyList()
     }
 
     /**

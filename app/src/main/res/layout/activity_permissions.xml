@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:scrollbars="vertical">
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -43,8 +43,8 @@
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
                     android:fontFamily="sans-serif-bold"
-                    android:letterSpacing="0.05"
-                    android:text="System Access &amp; Permissions"
+                    android:letterSpacing="0.03"
+                    android:text="Permissions &amp; Control"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp" />
 
@@ -55,22 +55,111 @@
                     android:background="@drawable/bg_chip_pill_primary"
                     android:paddingHorizontal="12dp"
                     android:paddingVertical="6dp"
-                    android:text="🔄 Re-check"
+                    android:text="🔄 Sync"
                     android:textColor="@color/accent_primary"
                     android:textSize="12sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:text="Tap any permission row below to grant access or configure settings."
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+            <!-- SUMMARY & MASTER GRANT ALL CARD -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/SettingsCard"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="16dp">
 
-            <com.google.android.material.card.MaterialCardView style="@style/SettingsCard">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-bold"
+                                android:text="System Access Status"
+                                android:textColor="@color/text_primary"
+                                android:textSize="15sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Grant access to enable full JARVIS capabilities"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/permissionStatusCounter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_chip_pill_primary"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:text="0 of 7 Granted"
+                            android:textColor="@color/accent_primary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- MASTER GRANT ALL BUTTON -->
+                    <FrameLayout
+                        android:id="@+id/grantAllPermissionsBtn"
+                        android:layout_width="match_parent"
+                        android:layout_height="46dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_chip_pill_primary"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:gravity="center"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-bold"
+                                android:letterSpacing="0.04"
+                                android:text="⚡ Give All Permissions"
+                                android:textColor="@color/accent_primary"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+                    </FrameLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- SECTION HEADER 1 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:fontFamily="sans-serif-bold"
+                android:letterSpacing="0.05"
+                android:text="CORE APP PERMISSIONS"
+                android:textColor="@color/accent_primary"
+                android:textSize="11sp" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/SettingsCard"
+                android:layout_marginBottom="16dp">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -349,8 +438,29 @@
                             android:textSize="10sp"
                             android:textStyle="bold" />
                     </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                    <View style="@style/SettingsDivider" />
+            <!-- SECTION HEADER 2 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:fontFamily="sans-serif-bold"
+                android:letterSpacing="0.05"
+                android:text="SYSTEM AUTOMATION &amp; ACCESSIBILITY"
+                android:textColor="@color/accent_primary"
+                android:textSize="11sp" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/SettingsCard"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="6dp">
 
                     <!-- ACCESSIBILITY SERVICE -->
                     <LinearLayout
@@ -387,7 +497,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Required to control screen &amp; YouTube"
+                                android:text="Required to control apps &amp; tap UI elements"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
@@ -404,8 +514,29 @@
                             android:textSize="10sp"
                             android:textStyle="bold" />
                     </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                    <View style="@style/SettingsDivider" />
+            <!-- SECTION HEADER 3 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:fontFamily="sans-serif-bold"
+                android:letterSpacing="0.05"
+                android:text="FLOATING OVERLAY CONTROL"
+                android:textColor="@color/accent_primary"
+                android:textSize="11sp" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/SettingsCard"
+                android:layout_marginBottom="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="6dp">
 
                     <!-- OVERLAY PERMISSION -->
                     <LinearLayout
@@ -435,14 +566,14 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:fontFamily="sans-serif-medium"
-                                android:text="Display Over Other Apps"
+                                android:text="Display Over Other Apps Permission"
                                 android:textColor="@color/text_primary"
                                 android:textSize="13sp" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Required for floating voice orb"
+                                android:text="System permission for floating elements"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="11sp" />
                         </LinearLayout>
@@ -462,34 +593,82 @@
 
                     <View style="@style/SettingsDivider" />
 
-                    <!-- OPEN APP DETAILS SETTINGS BUTTON -->
+                    <!-- OVERLAY FEATURE TOGGLE (DEFAULT OFF) -->
                     <LinearLayout
-                        android:id="@+id/openAppDetailsBtn"
+                        android:id="@+id/overlayToggleRow"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_settings_row"
-                        android:gravity="center"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal"
                         android:padding="12dp">
 
-                        <TextView
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_settings"
+                            app:tint="@color/accent_primary" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="Floating Voice Orb (Overlay)"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Show floating orb when JARVIS is in background (Default: OFF)"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/overlaySwitch"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:fontFamily="sans-serif-bold"
-                            android:text="Open System App Info Settings"
-                            android:textColor="@color/accent_primary"
-                            android:textSize="12sp" />
-
-                        <ImageView
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:layout_marginStart="6dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_chevron_right"
-                            app:tint="@color/accent_primary" />
+                            android:checked="false"
+                            app:useMaterialThemeColors="true" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- OPEN SYSTEM APP DETAILS SETTINGS BUTTON -->
+            <LinearLayout
+                android:id="@+id/openAppDetailsBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_settings_row"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="Open System App Info Settings"
+                    android:textColor="@color/accent_primary"
+                    android:textSize="13sp" />
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/accent_primary" />
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>

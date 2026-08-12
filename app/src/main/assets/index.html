@@ -512,9 +512,18 @@
     // AUDIO REACTIVITY & EXPOSED KOTLIN JS INTERFACE
     let userAudioLevel = 0;
     let smoothedUserAudio = 0;
+    let currentOrbState = "IDLE";
+    let isOrbMuted = false;
+    let isOrbPowered = true;
 
     window.setAudioLevel = function(level) {
       userAudioLevel = Math.min(1.0, Math.max(0.0, level));
+    };
+
+    window.setOrbState = function(stateName, colorHex, muted, poweredOn) {
+      if (stateName) currentOrbState = stateName;
+      if (muted !== undefined) isOrbMuted = muted;
+      if (poweredOn !== undefined) isOrbPowered = poweredOn;
     };
 
     // ANIMATION LOOP
@@ -525,11 +534,12 @@
       requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
-      // Smooth audio level
-      smoothedUserAudio += (userAudioLevel - smoothedUserAudio) * 0.2;
-      const audioEnergy = smoothedUserAudio * 1.5;
+      // Smooth audio level & state energy
+      smoothedUserAudio += (userAudioLevel - smoothedUserAudio) * 0.25;
+      const stateEnergyMult = (currentOrbState === "THINKING" || currentOrbState === "SPEAKING") ? 1.4 : 1.0;
+      const audioEnergy = (isOrbMuted || !isOrbPowered) ? 0 : smoothedUserAudio * 1.5 * stateEnergyMult;
 
-      const orbScale = 1 + audioEnergy * 0.25;
+      const orbScale = (!isOrbPowered) ? 0.85 : (1 + audioEnergy * 0.28);
       orbGroup.scale.setScalar(orbScale);
 
       outerShell.rotation.y += 0.0015 + audioEnergy * 0.012;

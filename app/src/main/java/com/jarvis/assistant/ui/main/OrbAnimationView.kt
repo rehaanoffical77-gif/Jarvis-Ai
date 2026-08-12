@@ -30,12 +30,12 @@ import java.nio.FloatBuffer
  * `onPause()` for lifecycle parity with the old GLSurfaceView-shaped API) is
  * unchanged, so this drops in with no layout or call-site changes.
  *
- * State → color mapping (blue "JARVIS Professional Blue" family, shared with
- * colors.xml and MainActivity's waveform/mic-ring tinting):
- *  - IDLE                → cool grey-blue, slow drift
- *  - LISTENING / ACTIVE  → primary blue rings
- *  - THINKING            → cyan arc
- *  - SPEAKING            → steel-blue waves
+ * State → color mapping (5-color Amber Gold family: #553300, #884400, #DD7700, #FFAA30, #FFCC66):
+ *  - IDLE                → Shadow Bronze & Warm Amber Gold
+ *  - LISTENING / ACTIVE  → Vibrant Amber & Primary Gold Waves
+ *  - THINKING            → Electric Amber & Luminous Highlight
+ *  - SPEAKING            → Radiant Fluid Amber Gold Waves
+ *  - LOGIN               → Full Amber Gold Palette Waves
  *
  * Transitions between states ease in over ~10 frames (not an instant snap) and
  * briefly brighten ("light up") right at the moment of change, so switching
@@ -180,30 +180,31 @@ class OrbAnimationView @JvmOverloads constructor(
                 vec3 color1, color2, color3;
                 float speed = 0.7;
 
-                if (u_state < 0.5) { // Idle: Deep Midnight Blue & Silky Ocean Cyan (Matches Reference Photo)
-                    color1 = vec3(0.02, 0.08, 0.25);
-                    color2 = vec3(0.10, 0.45, 0.96);
-                    color3 = vec3(0.0, 0.72, 1.0);
+                // 5 Amber Gold Palette Colors: #553300, #884400, #DD7700, #FFAA30, #FFCC66
+                if (u_state < 0.5) { // Idle: Shadow Bronze & Warm Amber Gold
+                    color1 = vec3(0.333, 0.200, 0.000); // #553300 (Deep Shadow Bronze)
+                    color2 = vec3(0.533, 0.267, 0.000); // #884400 (Mid Shadow Bronze)
+                    color3 = vec3(0.867, 0.467, 0.000); // #DD7700 (Warm Orange Gold)
                     speed = 0.5;
-                } else if (u_state < 1.5) { // Listening: Vibrant Electric Royal Blue & Cyan Waves
-                    color1 = vec3(0.0, 0.35, 0.95);
-                    color2 = vec3(0.0, 0.75, 1.0);
-                    color3 = vec3(0.2, 0.88, 1.0);
+                } else if (u_state < 1.5) { // Listening: Vibrant Amber & Primary Gold Waves
+                    color1 = vec3(0.533, 0.267, 0.000); // #884400 (Mid Shadow Bronze)
+                    color2 = vec3(0.867, 0.467, 0.000); // #DD7700 (Warm Orange Gold)
+                    color3 = vec3(1.000, 0.667, 0.188); // #FFAA30 (Primary Amber Gold)
                     speed = 1.2;
-                } else if (u_state < 2.5) { // Thinking: Electric Cyan & Deep Navy Arc
-                    color1 = vec3(0.0, 0.85, 1.0);
-                    color2 = vec3(0.02, 0.25, 0.75);
-                    color3 = vec3(0.1, 0.5, 1.0);
+                } else if (u_state < 2.5) { // Thinking: Electric Amber & Luminous Highlight
+                    color1 = vec3(0.333, 0.200, 0.000); // #553300 (Deep Shadow Bronze)
+                    color2 = vec3(1.000, 0.667, 0.188); // #FFAA30 (Primary Amber Gold)
+                    color3 = vec3(1.000, 0.800, 0.400); // #FFCC66 (Highlight Gold)
                     speed = 1.6;
-                } else if (u_state < 3.5) { // Speaking: Luminous Oceanic Blue-Cyan Waves
-                    color1 = vec3(0.12, 0.55, 1.0);
-                    color2 = vec3(0.0, 0.78, 1.0);
-                    color3 = vec3(0.25, 0.9, 1.0);
+                } else if (u_state < 3.5) { // Speaking: Radiant Fluid Amber Gold Waves
+                    color1 = vec3(0.867, 0.467, 0.000); // #DD7700 (Warm Orange Gold)
+                    color2 = vec3(1.000, 0.667, 0.188); // #FFAA30 (Primary Amber Gold)
+                    color3 = vec3(1.000, 0.800, 0.400); // #FFCC66 (Highlight Gold)
                     speed = 1.0;
-                } else { // Login Page Redesign: Custom Amber Gold Palette (#FFAA30, #DD7700, #884400, #553300, #FFCC66)
-                    color1 = vec3(0.333, 0.200, 0.000);  // #553300 (Deep Shadow Bronze)
-                    color2 = vec3(0.867, 0.467, 0.000);  // #DD7700 (Warm Orange Gold)
-                    color3 = vec3(1.000, 0.667, 0.188);  // #FFAA30 (Primary Amber Gold Accent)
+                } else { // Login / Custom Amber Gold Palette
+                    color1 = vec3(0.333, 0.200, 0.000); // #553300 (Deep Shadow Bronze)
+                    color2 = vec3(0.867, 0.467, 0.000); // #DD7700 (Warm Orange Gold)
+                    color3 = vec3(1.000, 0.667, 0.188); // #FFAA30 (Primary Amber Gold Accent)
                     speed = 0.85;
                 }
 
@@ -217,10 +218,13 @@ class OrbAnimationView @JvmOverloads constructor(
                 float fluid = sin(dist * 7.0 - u_time * speed * 2.2 + length(q) * 2.0);
                 float wave2 = cos(uv.x * 4.0 - uv.y * 3.0 + u_time * speed);
 
-                vec3 highlightColor = (u_state > 3.5) ? vec3(1.000, 0.800, 0.400) : color3; // #FFCC66 Highlight for Login Orb!
+                vec3 c_midShadow = vec3(0.533, 0.267, 0.000);    // #884400 (Mid Shadow Bronze)
+                vec3 highlightColor = vec3(1.000, 0.800, 0.400); // #FFCC66 (Highlight Gold for all Orb states)
 
-                vec3 fluidColor = mix(color1, color2, fluid * 0.5 + 0.5);
-                fluidColor = mix(fluidColor, highlightColor, wave2 * 0.35 + 0.35);
+                vec3 fluidColor = mix(color1, c_midShadow, fluid * 0.25 + 0.25);
+                fluidColor = mix(fluidColor, color2, fluid * 0.5 + 0.5);
+                fluidColor = mix(fluidColor, color3, wave2 * 0.35 + 0.35);
+                fluidColor = mix(fluidColor, highlightColor, wave2 * 0.25 + 0.25);
 
                 // Flash cue on state change
                 fluidColor *= (1.0 + u_flash * 0.6);

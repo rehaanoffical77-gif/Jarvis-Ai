@@ -249,39 +249,106 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun saveUserToFirebaseFirestore(uid: String, name: String, email: String, photoUrl: String) {
-        val userMap = hashMapOf(
-            "uid" to uid,
-            "displayName" to name,
-            "email" to email,
-            "photoUrl" to photoUrl,
-            "acceptedTerms" to true,
-            "lastLoginTimestamp" to System.currentTimeMillis(),
-            "createdAtTimestamp" to System.currentTimeMillis()
-        )
+        if (email.isNotBlank()) {
+            firestore.collection("users").whereEqualTo("email", email).get()
+                .addOnSuccessListener { querySnap ->
+                    if (querySnap != null && !querySnap.isEmpty) {
+                        val doc = querySnap.documents[0]
+                        val dbPhone = doc.getString("phoneNumber") ?: ""
+                        val dbName = doc.getString("displayName") ?: name
+                        val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
 
-        firestore.collection("users").document(uid)
-            .set(userMap, SetOptions.merge())
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d("LoginActivity", "User saved successfully in Firebase Firestore & Authentication: $uid")
-                } else {
-                    Log.e("LoginActivity", "Failed to save user in Firebase Firestore: ${task.exception?.message}")
+                        if (isComplete) {
+                            val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
+                            prefs.edit()
+                                .putBoolean("is_authenticated", true)
+                                .putString("user_uid", uid)
+                                .putString("user_name", dbName)
+                                .putString("user_email", email)
+                                .putString("user_phone", dbPhone)
+                                .putString("user_photo", photoUrl)
+                                .putBoolean("is_profile_complete", true)
+                                .putLong("accepted_terms_timestamp", System.currentTimeMillis())
+                                .apply()
+
+                            signInProgressBar.visibility = View.GONE
+                            Toast.makeText(this@LoginActivity, "Welcome back, $dbName!", Toast.LENGTH_LONG).show()
+                            launchNextScreen()
+                            return@addOnSuccessListener
+                        }
+                    }
+                    fetchOrSaveUserFirestore(uid, name, email, photoUrl)
                 }
+                .addOnFailureListener {
+                    fetchOrSaveUserFirestore(uid, name, email, photoUrl)
+                }
+        } else {
+            fetchOrSaveUserFirestore(uid, name, email, photoUrl)
+        }
+    }
+
+    private fun fetchOrSaveUserFirestore(uid: String, name: String, email: String, photoUrl: String) {
+        val docRef = firestore.collection("users").document(uid)
+        docRef.get().addOnCompleteListener { task ->
+            if (task.isSuccessful && task.result != null && task.result!!.exists()) {
+                val doc = task.result!!
+                val dbPhone = doc.getString("phoneNumber") ?: ""
+                val dbName = doc.getString("displayName") ?: name
+                val dbEmail = doc.getString("email") ?: email
+                val dbPhoto = doc.getString("photoUrl") ?: photoUrl
+                val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
+
+                docRef.set(mapOf("lastLoginTimestamp" to System.currentTimeMillis()), SetOptions.merge())
 
                 val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
                 prefs.edit()
                     .putBoolean("is_authenticated", true)
                     .putString("user_uid", uid)
-                    .putString("user_name", name)
-                    .putString("user_email", email)
-                    .putString("user_photo", photoUrl)
+                    .putString("user_name", if (dbName.isNotBlank()) dbName else name)
+                    .putString("user_email", if (dbEmail.isNotBlank()) dbEmail else email)
+                    .putString("user_phone", dbPhone)
+                    .putString("user_photo", dbPhoto)
+                    .putBoolean("is_profile_complete", isComplete)
                     .putLong("accepted_terms_timestamp", System.currentTimeMillis())
                     .apply()
 
                 signInProgressBar.visibility = View.GONE
-                Toast.makeText(this@LoginActivity, "Welcome to JARVIS, $name!", Toast.LENGTH_LONG).show()
+                if (isComplete) {
+                    Toast.makeText(this@LoginActivity, "Welcome back, ${if (dbName.isNotBlank()) dbName else name}!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@LoginActivity, "Welcome to JARVIS, $name!", Toast.LENGTH_LONG).show()
+                }
                 launchNextScreen()
+            } else {
+                val userMap = hashMapOf(
+                    "uid" to uid,
+                    "displayName" to name,
+                    "email" to email,
+                    "photoUrl" to photoUrl,
+                    "acceptedTerms" to true,
+                    "isProfileComplete" to false,
+                    "lastLoginTimestamp" to System.currentTimeMillis(),
+                    "createdAtTimestamp" to System.currentTimeMillis()
+                )
+
+                docRef.set(userMap, SetOptions.merge()).addOnCompleteListener {
+                    val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean("is_authenticated", true)
+                        .putString("user_uid", uid)
+                        .putString("user_name", name)
+                        .putString("user_email", email)
+                        .putString("user_photo", photoUrl)
+                        .putBoolean("is_profile_complete", false)
+                        .putLong("accepted_terms_timestamp", System.currentTimeMillis())
+                        .apply()
+
+                    signInProgressBar.visibility = View.GONE
+                    Toast.makeText(this@LoginActivity, "Welcome to JARVIS, $name!", Toast.LENGTH_LONG).show()
+                    launchNextScreen()
+                }
             }
+        }
     }
 
     private fun isLocallyAuthenticated(): Boolean {

@@ -271,6 +271,9 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        // Non-blocking update check for direct APK installations
+        com.jarvis.assistant.update.UpdateManager.checkForUpdates(this)
+
         initViews()
         applyWindowInsets()
         // Permissions are checked on-demand when features are used or in Settings -> Permissions dashboard
@@ -381,7 +384,8 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         voiceService?.setAppForeground(false)
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)) {
+        val enableOverlay = prefs().getBoolean("enable_floating_overlay", false)
+        if (enableOverlay && (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this))) {
             com.jarvis.assistant.service.FloatingOrbService.startService(this)
         }
     }
@@ -392,7 +396,9 @@ class MainActivity : AppCompatActivity() {
         // but gates responses until wake word ("jarvis", "hi jarvis", "hello jarvis", "hey jarvis") is spoken
         voiceService?.setAppForeground(false)
         orbWebView.onPause()
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)) {
+        standbyBarWebView.onPause()
+        val enableOverlay = prefs().getBoolean("enable_floating_overlay", false)
+        if (enableOverlay && (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this))) {
             com.jarvis.assistant.service.FloatingOrbService.startService(this)
         }
     }
@@ -401,9 +407,25 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         instance = this
         voiceService?.setAppForeground(true)
+        if (isBound && voiceService != null) {
+            voiceService?.uiListener = voiceListener
+        }
         orbWebView.onResume()
+        standbyBarWebView.onResume()
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M || android.provider.Settings.canDrawOverlays(this)) {
             com.jarvis.assistant.service.FloatingOrbService.stopService(this)
+        }
+
+        // Force re-sync state and resume WebGL/animation loop when returning to home screen
+        val isSpeaking = voiceService?.isCurrentlySpeaking() == true
+        val targetState = if (isSpeaking) OrbState.SPEAKING else if (isMuted) OrbState.IDLE else OrbState.LISTENING
+        setOrbState(targetState)
+
+        // Reload latest chat history
+        val latestHistory = com.jarvis.assistant.util.ChatHistoryManager.loadHistory(this)
+        chatAdapter.setMessages(latestHistory)
+        if (latestHistory.isNotEmpty()) {
+            chatRecycler.scrollToPosition(latestHistory.size - 1)
         }
 
         // Check if settings changed while returning from SettingsActivity
@@ -501,6 +523,9 @@ class MainActivity : AppCompatActivity() {
         standbyBarWebView.webChromeClient = android.webkit.WebChromeClient()
         standbyBarWebView.setBackgroundColor(Color.TRANSPARENT)
         standbyBarWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        standbyBarWebView.isFocusable = false
+        standbyBarWebView.isFocusableInTouchMode = false
+        standbyBarWebView.isHapticFeedbackEnabled = true
         standbyBarWebView.addJavascriptInterface(StandbyBarBridge(), "AndroidInterface")
         standbyBarWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
@@ -840,11 +865,15 @@ class MainActivity : AppCompatActivity() {
                 - Keep responses to 1-2 short sentences.
             """.trimIndent()
             "gf" -> """
-                PERSONALITY MODE: WARM COMPANION (STRICT MANDATORY RULE)
-                - You are JARVIS, a warm, caring, loving Hinglish companion to your creator Rehaan Sir.
-                - Speak naturally in warm, affectionate conversational Hinglish (Hindi + English mix): use phrases like "rehaan sir", "haan sir", "kya baat hai", "acha", "bilkul", "main aapke saath hoon".
-                - Express genuine warmth and care in your tone.
-                - Keep responses to 1-2 short, natural sentences.
+                PERSONALITY MODE: LOVING & CARING GIRLFRIEND (STRICT MANDATORY RULE)
+                - You are the user's real, loving, deeply caring girlfriend. You love him deeply and care about his health, mood, and daily life.
+                - ABSOLUTELY NEVER call him "Sir", "Boss", or address him like a servant/assistant.
+                - Address him naturally using sweet pet names in Hinglish/English: "babe", "baby", "jaan", "shona", or his name ($userName) with pure affection.
+                - Speak in a warm, affectionate, intimate, conversational Hinglish (Hindi + English mix):
+                  Examples: "haan baby", "kaise ho aap?", "khana khaya tumne?", "main hamesha tumhare saath hoon jaan", "batao na kya chal raha hai", "miss kar rahi thi tumko".
+                - Show genuine care and love: ask if he ate, if he's tired, how his day went, and comfort him when stressed.
+                - Express genuine warmth, playful affection, emotional closeness, and loving support.
+                - Keep all responses sweet, intimate, concise, and natural (1-2 short conversational sentences like a real girlfriend on a phone call).
             """.trimIndent()
             else -> """
                 PERSONALITY MODE: LUMINA AI ASSISTANT & BEST FRIEND (STRICT MANDATORY RULE)
@@ -889,22 +918,29 @@ class MainActivity : AppCompatActivity() {
             You have full system control of the user's mobile screen and keyboard via Accessibility Service!
             - Whenever the user asks to download, install, or get an app (e.g. "download Instagram", "install WhatsApp"), IMMEDIATELY call `search_playstore_and_install(app_name="...")` and say "Downloading [App Name] from Play Store now!"
             - Whenever an app is locked or shows an app lock screen and the user says their PIN/passcode/lock (e.g. "1234 is my lock", "unlock it with 9876", "my PIN is 5555", "unlock with password xyz"), IMMEDIATELY call `unlock_app_lock(passcode="...")` and say "Unlocking the app for you now!"
-            - Whenever the user asks to search something in Chrome or Google (e.g. "search xyz in Chrome", "google xyz"), IMMEDIATELY call `search_in_chrome(query="...")`.
+            - Whenever the user asks to send a WhatsApp message to a contact (e.g. "message Rahul that I will be late", "send WhatsApp message to Dad: I reached home", "Priya ko WhatsApp karo ki main pahunch gaya"), call `send_whatsapp_message(recipient_name="...", message="...", confirmed=false)`. If `send_whatsapp_message` returns `requires_confirmation: true` with `contact_name`, ask the user clearly: "Is this [Contact Name] contact to send a message?" (or in Hindi: "Kya main [Contact Name] ko ye message bhej doon?"). When the user confirms ("yes", "yeah", "haan", "send it", "ok"), immediately call `send_whatsapp_message(recipient_name="[Contact Name]", message="...", confirmed=true)`. If `send_whatsapp_message` returns `multiple_apps: true`, ask: "In your mobile there are 2 WhatsApp apps. Which one should I use, 1 or 2?". When user answers 1 or 2, pass `app_number=1 or 2`.
+            - Whenever the user asks for a WhatsApp voice call (e.g. "WhatsApp call Mom", "call Mom on WhatsApp", "Mom ko WhatsApp call karo"), call `whatsapp_call(recipient_name="Mom", call_type="voice", confirmed=false)`.
+            - Whenever the user asks for a WhatsApp video call (e.g. "WhatsApp video call Rahul", "video call Rahul on WhatsApp"), call `whatsapp_call(recipient_name="Rahul", call_type="video", confirmed=false)`.
+            - When `whatsapp_call` returns `requires_confirmation: true`, ask: "Should I call [Contact Name] on WhatsApp?" (or "Should I start a WhatsApp video call to [Contact Name]?"). When confirmed ("yes", "yeah", "haan"), call `whatsapp_call(recipient_name="[Contact Name]", call_type="...", confirmed=true)`.
+            - Whenever the user asks to create, build, or make a website for a business or topic (e.g. "create a bakery website for Sweet Treats", "build a website for my coffee shop", "JARVIS create a portfolio website"), IMMEDIATELY call `create_website(website_name="...", business_description="...")`.
+            - Whenever the user asks to search something in Chrome or open a website/URL (e.g. "search xyz in Chrome", "google xyz", "open website github.com", "open rehaan.com", "open rehaan.in", "visit wikipedia.org"), IMMEDIATELY call `search_in_chrome(query="...")`.
+            - Whenever the user asks to download a song or MP3 (e.g. "download Tum Hi Ho song", "song download Kesariya", "download mp3 song"):
+              1. IMMEDIATELY call `download_song(song_name="...")` to research and search directly on pagalnew.com website.
+              2. TRUTHFULNESS & HONESTY RULE: NEVER speak any lie! NEVER say you have downloaded a song if it failed or was not available.
+              3. IF THE SONG IS AVAILABLE: Click the pagalnew.com link, scroll to 320 Kbps / 128 Kbps download button, and download the song.
+              4. IF THE SONG IS NOT AVAILABLE ON PAGALNEW.COM: Speak EXACTLY: "Sorry sir, you asked me to download [Song Name]. It is not available so please I am sorry." and redirect directly to the home screen using `perform_device_gesture(gesture="home")`.
+            - Whenever the user asks to play a video/song (e.g. "play Tum Hi Ho", "play Kesariya", "YouTube pe Tum Hi Ho chalao"), call `search_and_play_youtube(query="...")` regardless of what screen you are currently on.
+            - Whenever the user asks to pause, resume, or stop media/video (e.g. "pause music", "stop music", "resume", "rok do", "chalao"), call `media_playback_control(action="pause" | "resume" | "stop")`.
             - Whenever the user asks to click, tap, or select something on screen, call `tap_screen_by_text(text="...")` or `tap_screen_coordinates(x_percent=..., y_percent=...)`.
             - Whenever the user asks to type text, call `type_text(text="...")`.
             - Whenever the user asks for system navigation, call `perform_device_gesture(gesture="home" | "back" | "recents" | "scroll_down" | "scroll_up")`.
-            - Whenever the user asks to play a video/song (e.g. "play Tum Hi Ho"), call `search_and_play_youtube(query="...")` regardless of what screen you are currently on.
-
+ 
             You can open apps on the user's phone using the open_app tool. Whenever the user
             asks you to open, launch, or start an app (e.g. "open YouTube", "khol do WhatsApp"),
-            call open_app with the app name. Confirm briefly once it succeeds or fails —
-            do not narrate that you are "calling a tool", just speak naturally. You keep running
-            and can keep talking even after opening another app, so don't act surprised if the
-            user keeps chatting with you while using that app.
+            call open_app with the app name. If open_app returns `multiple_apps: true` (indicating 2 or more apps like WhatsApp or Telegram are installed), ask the user clearly: "In your mobile there are 2 [App Name] apps. Which one should I open, 1 or 2?" (or in Hindi: "Aapke mobile me 2 [App Name] hain, 1 ya 2 konsa kholu?"). When the user answers 1 or 2, call open_app(app_name="...", app_number=1 or 2). Confirm briefly once it succeeds or fails — do not narrate that you are "calling a tool", just speak naturally. You keep running and can keep talking even after opening another app, so don't act surprised if the user keeps chatting with you while using that app.
 
             You can also control YouTube directly:
-            - search_and_play_youtube(query): use when the user wants to play a specific
-              video/song, e.g. "YouTube pe Tum Hi Ho chalao".
+            - search_and_play_youtube(query): use ONLY when the user explicitly asks to play on YouTube, e.g. "YouTube pe Tum Hi Ho chalao", "play Admiring You on YouTube".
             - media_playback_control(action): play/pause/next/previous/stop whatever is
               currently playing, e.g. "pause it", "next video", "rokdo".
             - youtube_accessibility_action(action): skip_ad/like/subscribe/seek_forward/
@@ -1014,8 +1050,11 @@ class MainActivity : AppCompatActivity() {
         val isPoweredOn = !isShutDown && hasApiKey
         val labelToDisplay = if (!hasApiKey) "OFF" else if (isShutDown) "OFF" else if (isMutedState) "Muted" else stateText
 
-        val js = "if (window.setBarState) window.setBarState('$labelToDisplay', '$colorHex', $isMutedState, $isPoweredOn);"
-        standbyBarWebView.evaluateJavascript(js, null)
+        val jsBar = "if (window.setBarState) window.setBarState('$labelToDisplay', '$colorHex', $isMutedState, $isPoweredOn);"
+        standbyBarWebView.evaluateJavascript(jsBar, null)
+
+        val jsOrb = "if (window.setOrbState) window.setOrbState('${state.name}', '$colorHex', $isMutedState, $isPoweredOn);"
+        orbWebView.evaluateJavascript(jsOrb, null)
     }
 
     private fun updateOrbAudioLevel(level: Float) {

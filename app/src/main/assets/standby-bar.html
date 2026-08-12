@@ -9,6 +9,17 @@
     --glow: #E5A83B;
     --glow-dim: #8A611D;
   }
+  *, *::before, *::after {
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-focus-ring-color: transparent !important;
+    outline: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+  *:focus {
+    outline: none !important;
+  }
   html,body{
     margin:0;
     padding:0;

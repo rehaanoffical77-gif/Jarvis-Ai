@@ -53,6 +53,45 @@ class ProfileSetupActivity : AppCompatActivity() {
 
     private fun prepopulateData() {
         val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
+
+        if (prefs.getBoolean("is_profile_complete", false)) {
+            launchMainActivity()
+            return
+        }
+
+        val currentUser = firebaseAuth.currentUser
+        val uid = currentUser?.uid ?: prefs.getString("user_uid", null)
+        val email = currentUser?.email ?: prefs.getString("user_email", null)
+
+        if (uid != null || email != null) {
+            val queryTask = if (uid != null) {
+                firestore.collection("users").document(uid).get()
+            } else {
+                null
+            }
+
+            queryTask?.addOnSuccessListener { doc ->
+                if (doc != null && doc.exists()) {
+                    val dbPhone = doc.getString("phoneNumber") ?: ""
+                    val dbName = doc.getString("displayName") ?: ""
+                    val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
+
+                    if (isComplete) {
+                        prefs.edit()
+                            .putString("user_name", dbName)
+                            .putString("user_phone", dbPhone)
+                            .putBoolean("is_profile_complete", true)
+                            .apply()
+                        launchMainActivity()
+                        return@addOnSuccessListener
+                    }
+
+                    if (dbName.isNotBlank()) nameInput.setText(dbName)
+                    if (dbPhone.isNotBlank()) phoneInput.setText(dbPhone)
+                }
+            }
+        }
+
         val savedName = prefs.getString("user_name", "") ?: ""
         val firebaseName = firebaseAuth.currentUser?.displayName ?: ""
         val nameToSet = if (savedName.isNotBlank()) savedName else firebaseName
@@ -64,6 +103,14 @@ class ProfileSetupActivity : AppCompatActivity() {
         if (savedPhone.isNotBlank()) {
             phoneInput.setText(savedPhone)
         }
+    }
+
+    private fun launchMainActivity() {
+        val intent = Intent(this@ProfileSetupActivity, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
     }
 
     private fun validateAndSaveProfile() {

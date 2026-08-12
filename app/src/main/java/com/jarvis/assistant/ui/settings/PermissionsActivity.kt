@@ -13,13 +13,18 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.jarvis.assistant.R
+import com.jarvis.assistant.service.FloatingOrbService
+import com.jarvis.assistant.service.JarvisAccessibilityService
 import com.jarvis.assistant.util.pressFeedback
 
 class PermissionsActivity : AppCompatActivity() {
 
     private lateinit var backBtn: ImageView
     private lateinit var recheckPermissionsBtn: TextView
+    private lateinit var permissionStatusCounter: TextView
+    private lateinit var grantAllPermissionsBtn: View
 
     private lateinit var micPermissionRow: View
     private lateinit var micPermissionBadge: TextView
@@ -42,7 +47,12 @@ class PermissionsActivity : AppCompatActivity() {
     private lateinit var overlayPermissionRow: View
     private lateinit var overlayPermissionBadge: TextView
 
+    private lateinit var overlaySwitch: SwitchMaterial
     private lateinit var openAppDetailsBtn: View
+
+    companion object {
+        private const val REQUEST_CODE_GRANT_ALL = 500
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +70,8 @@ class PermissionsActivity : AppCompatActivity() {
     private fun initViews() {
         backBtn = findViewById(R.id.backBtn)
         recheckPermissionsBtn = findViewById(R.id.recheckPermissionsBtn)
+        permissionStatusCounter = findViewById(R.id.permissionStatusCounter)
+        grantAllPermissionsBtn = findViewById(R.id.grantAllPermissionsBtn)
 
         micPermissionRow = findViewById(R.id.micPermissionRow)
         micPermissionBadge = findViewById(R.id.micPermissionBadge)
@@ -82,7 +94,12 @@ class PermissionsActivity : AppCompatActivity() {
         overlayPermissionRow = findViewById(R.id.overlayPermissionRow)
         overlayPermissionBadge = findViewById(R.id.overlayPermissionBadge)
 
+        overlaySwitch = findViewById(R.id.overlaySwitch)
         openAppDetailsBtn = findViewById(R.id.openAppDetailsBtn)
+
+        val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
+        val overlayEnabled = prefs.getBoolean("enable_floating_overlay", false)
+        overlaySwitch.isChecked = overlayEnabled
     }
 
     private fun wireInteractions() {
@@ -92,6 +109,11 @@ class PermissionsActivity : AppCompatActivity() {
         recheckPermissionsBtn.pressFeedback(0.95f)
         recheckPermissionsBtn.setOnClickListener {
             checkAllPermissionsStatus(showToast = true)
+        }
+
+        grantAllPermissionsBtn.pressFeedback(0.96f)
+        grantAllPermissionsBtn.setOnClickListener {
+            grantAllPermissions()
         }
 
         micPermissionRow.pressFeedback(0.98f)
@@ -153,7 +175,7 @@ class PermissionsActivity : AppCompatActivity() {
                     Toast.makeText(this, "Notifications permission is already granted", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "Notifications permission is automatically granted on this Android version", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Notifications permission is automatically granted", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -183,6 +205,32 @@ class PermissionsActivity : AppCompatActivity() {
             }
         }
 
+        overlaySwitch.setOnCheckedChangeListener { _, isChecked ->
+            val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
+            if (isChecked) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                    overlaySwitch.isChecked = false
+                    Toast.makeText(this, "Please enable 'Display Over Other Apps' permission first!", Toast.LENGTH_LONG).show()
+                    try {
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Couldn't open Overlay settings", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    prefs.edit().putBoolean("enable_floating_overlay", true).apply()
+                    Toast.makeText(this, "Floating Overlay Orb Enabled!", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                prefs.edit().putBoolean("enable_floating_overlay", false).apply()
+                FloatingOrbService.stopService(this)
+                Toast.makeText(this, "Floating Overlay Orb Disabled.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         openAppDetailsBtn.pressFeedback(0.96f)
         openAppDetailsBtn.setOnClickListener {
             try {
@@ -192,6 +240,53 @@ class PermissionsActivity : AppCompatActivity() {
                 startActivity(intent)
             } catch (e: Exception) {
                 Toast.makeText(this, "Couldn't open App Settings", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun grantAllPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        if (!isPermissionGranted(Manifest.permission.RECORD_AUDIO)) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+        if (!isPermissionGranted(Manifest.permission.CAMERA)) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        if (!isPermissionGranted(Manifest.permission.READ_CONTACTS)) {
+            permissionsToRequest.add(Manifest.permission.READ_CONTACTS)
+        }
+        if (!isPermissionGranted(Manifest.permission.CALL_PHONE)) {
+            permissionsToRequest.add(Manifest.permission.CALL_PHONE)
+        }
+        if (!isPermissionGranted(Manifest.permission.READ_PHONE_STATE)) {
+            permissionsToRequest.add(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS)) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                REQUEST_CODE_GRANT_ALL
+            )
+        } else {
+            // Check Accessibility and Overlay
+            if (!isAccessibilityServiceEnabled()) {
+                Toast.makeText(this, "Standard permissions granted! Please enable Accessibility Automation in Settings.", Toast.LENGTH_LONG).show()
+                try { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (e: Exception) {}
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                Toast.makeText(this, "Standard permissions granted! Enable Display Over Apps to use overlay.", Toast.LENGTH_LONG).show()
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))
+                    startActivity(intent)
+                } catch (e: Exception) {}
+            } else {
+                Toast.makeText(this, "All permissions are already granted!", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -248,6 +343,8 @@ class PermissionsActivity : AppCompatActivity() {
         updateBadge(overlayPermissionBadge, overlayEnabled, "ENABLED", "DISABLED")
         if (overlayEnabled) grantedCount++
 
+        permissionStatusCounter.text = "$grantedCount of $totalCount Granted"
+
         if (showToast) {
             Toast.makeText(
                 this,
@@ -258,7 +355,7 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val expectedService = "$packageName/${com.jarvis.assistant.service.JarvisAccessibilityService::class.java.canonicalName}"
+        val expectedService = "$packageName/${JarvisAccessibilityService::class.java.canonicalName}"
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
         val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
         colonSplitter.setString(enabledServices)

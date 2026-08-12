@@ -111,7 +111,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         val scanRunnable = object : Runnable {
             override fun run() {
                 attempts++
-                val clicked = performInstallTap()
+                val clicked = performInstallTap(appName)
                 if (clicked) {
                     android.util.Log.d(TAG, "Successfully tapped Install button for '$appName' on attempt $attempts")
                     return
@@ -126,20 +126,46 @@ class JarvisAccessibilityService : AccessibilityService() {
         handler.post(scanRunnable)
     }
 
-    private fun performInstallTap(): Boolean {
+    private fun performInstallTap(appName: String = ""): Boolean {
         val root = rootInActiveWindow ?: return false
 
-        // 1. Try finding nodes by text / contentDescription
+        fun isInputFieldOrSearchBar(node: AccessibilityNodeInfo): Boolean {
+            val cls = node.className?.toString() ?: ""
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            if (cls.contains("EditText") || cls.contains("AutoCompleteTextView") || cls.contains("SearchView")) return true
+            if (viewId.contains("url_bar") || viewId.contains("search_box") || viewId.contains("search_src_text") ||
+                viewId.contains("search_plate") || viewId.contains("location_bar") || viewId.contains("toolbar") || viewId.contains("input")) return true
+            return false
+        }
+
+        // Checks if a node or its parent container is marked as Sponsored / Ad
+        fun isSponsoredContainer(node: AccessibilityNodeInfo): Boolean {
+            var current: AccessibilityNodeInfo? = node
+            var depth = 0
+            while (current != null && depth < 6) {
+                val label = nodeLabel(current).lowercase()
+                if (label.contains("sponsored") || label.contains(" ad ") || label.startsWith("ad ") || label.contains("promoted")) {
+                    return true
+                }
+                current = current.parent
+                depth++
+            }
+            return false
+        }
+
+        // 1. Try finding Install / Update / Get buttons on active screen that are NOT inside sponsored ads or search inputs
         val keywords = listOf("install", "update", "get")
-        val exclude = listOf("installed", "installing", "uninstall", "cancel")
+        val exclude = listOf("installed", "installing", "uninstall", "cancel", "search", "query")
         val candidates = mutableListOf<AccessibilityNodeInfo>()
 
         fun scanTextNodes(node: AccessibilityNodeInfo) {
+            if (isInputFieldOrSearchBar(node)) return
+
             val label = nodeLabel(node).lowercase()
             if (label.isNotBlank()) {
                 val matchesKeyword = keywords.any { label.contains(it) }
                 val matchesExclude = exclude.any { label.contains(it) }
-                if (matchesKeyword && !matchesExclude) {
+                if (matchesKeyword && !matchesExclude && !isSponsoredContainer(node)) {
                     candidates.add(node)
                 }
             }
@@ -152,10 +178,32 @@ class JarvisAccessibilityService : AccessibilityService() {
         scanTextNodes(root)
 
         for (candidate in candidates.sortedBy { nodeLabel(it).length }) {
-            if (tapNodeOrParent(candidate)) return true
+            if (!isInputFieldOrSearchBar(candidate) && tapNodeOrParent(candidate)) return true
         }
 
-        // 2. Try finding nodes by Play Store resource ID ("right_button", "install_button", "buy_button")
+        // 2. If appName is specified and we are on Play Store search list, find non-sponsored card matching appName and tap it to open detail page
+        if (appName.isNotBlank()) {
+            val appTitleCandidates = mutableListOf<AccessibilityNodeInfo>()
+            fun scanAppTitles(node: AccessibilityNodeInfo) {
+                if (isInputFieldOrSearchBar(node)) return
+                val label = nodeLabel(node).lowercase()
+                if (label.contains(appName.lowercase()) && !isSponsoredContainer(node)) {
+                    if (node.isClickable || node.parent?.isClickable == true) {
+                        appTitleCandidates.add(node)
+                    }
+                }
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    scanAppTitles(child)
+                }
+            }
+            scanAppTitles(root)
+            for (candidate in appTitleCandidates) {
+                if (!isInputFieldOrSearchBar(candidate) && tapNodeOrParent(candidate)) return true
+            }
+        }
+
+        // 3. Try finding nodes by Play Store resource ID ("right_button", "install_button", "buy_button") excluding sponsored
         val idNeedles = listOf("install_button", "right_button", "buy_button")
         val idCandidates = mutableListOf<AccessibilityNodeInfo>()
         for (needle in idNeedles) {
@@ -163,7 +211,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         }
 
         for (candidate in idCandidates) {
-            if (tapNodeOrParent(candidate)) return true
+            if (!isSponsoredContainer(candidate) && tapNodeOrParent(candidate)) return true
         }
 
         return false
@@ -316,10 +364,125 @@ class JarvisAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Smart screen scrolling & Reels/Shorts auto-change:
+     * "scroll_up", "scroll_down", "scroll_to_top", "scroll_to_bottom", "next_reel", "prev_reel"
+     */
+    fun smartScroll(action: String): Boolean {
+        val act = action.lowercase().trim()
+        return when {
+            act.contains("to_top") || act.contains("boundary_top") -> {
+                repeat(5) { scrollScreen(isDown = false); try { Thread.sleep(120) } catch (_: Exception) {} }
+                true
+            }
+            act.contains("to_bottom") || act.contains("boundary_bottom") -> {
+                repeat(5) { scrollScreen(isDown = true); try { Thread.sleep(120) } catch (_: Exception) {} }
+                true
+            }
+            act.contains("next_reel") || act.contains("next_short") || act.contains("next") -> {
+                swipeVertical(swipeUp = true)
+            }
+            act.contains("prev_reel") || act.contains("prev_short") || act.contains("previous") -> {
+                swipeVertical(swipeUp = false)
+            }
+            act.contains("up") -> scrollScreen(isDown = false)
+            act.contains("down") -> scrollScreen(isDown = true)
+            else -> scrollScreen(isDown = true)
+        }
+    }
+
+    private fun swipeVertical(swipeUp: Boolean): Boolean {
+        val metrics = DisplayMetrics()
+        val wm = getSystemService(WINDOW_SERVICE) as? WindowManager ?: return false
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay?.getRealMetrics(metrics) ?: return false
+
+        val startY = if (swipeUp) metrics.heightPixels * 0.8f else metrics.heightPixels * 0.2f
+        val endY = if (swipeUp) metrics.heightPixels * 0.2f else metrics.heightPixels * 0.8f
+        val path = Path().apply {
+            moveTo(metrics.widthPixels * 0.5f, startY)
+            lineTo(metrics.widthPixels * 0.5f, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0, 250)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        return dispatchGesture(gesture, null, null)
+    }
+
+    /**
+     * Deletes WhatsApp message in active chat screen.
+     * [deleteTarget] is "everyone" (Delete for everyone) or "me" (Delete for me).
+     */
+    fun deleteWhatsAppMessage(deleteTarget: String = "everyone"): Boolean {
+        val root = rootInActiveWindow ?: return false
+
+        val messageNodes = mutableListOf<AccessibilityNodeInfo>()
+        fun scanChatMessages(node: AccessibilityNodeInfo) {
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            val cls = node.className?.toString() ?: ""
+            if (viewId.contains("message_text") || viewId.contains("msg_layout") || viewId.contains("conversation_row") ||
+                cls.contains("ViewGroup") || cls.contains("RelativeLayout") || cls.contains("LinearLayout")) {
+                if (nodeLabel(node).isNotBlank() && (node.isClickable || node.isLongClickable)) {
+                    messageNodes.add(node)
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                scanChatMessages(child)
+            }
+        }
+
+        scanChatMessages(root)
+
+        val targetMsgNode = messageNodes.lastOrNull()
+        if (targetMsgNode != null) {
+            targetMsgNode.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
+        } else {
+            val metrics = DisplayMetrics()
+            val wm = getSystemService(WINDOW_SERVICE) as? WindowManager ?: return false
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay?.getRealMetrics(metrics) ?: return false
+            val path = Path().apply { moveTo(metrics.widthPixels * 0.7f, metrics.heightPixels * 0.75f) }
+            val stroke = GestureDescription.StrokeDescription(path, 0, 800)
+            val gesture = GestureDescription.Builder().addStroke(stroke).build()
+            dispatchGesture(gesture, null, null)
+        }
+
+        try { Thread.sleep(450) } catch (_: Exception) {}
+
+        val deletedIconTapped = clickNodeMatching("delete", "trash") || tapTrashIcon()
+        if (!deletedIconTapped) return false
+
+        try { Thread.sleep(350) } catch (_: Exception) {}
+
+        val isEveryone = deleteTarget.lowercase().contains("everyone") || deleteTarget.lowercase().contains("all")
+        val optionTapped = if (isEveryone) {
+            clickNodeMatching("delete for everyone", "delete for all")
+        } else {
+            clickNodeMatching("delete for me")
+        }
+
+        if (!optionTapped) {
+            clickNodeMatching("delete for me", "delete for everyone", "ok", "delete")
+        }
+
+        return true
+    }
+
+    private fun tapTrashIcon(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        collectByResourceId(root, "delete", candidates)
+        collectByResourceId(root, "trash", candidates)
+        for (c in candidates) {
+            if (tapNodeOrParent(c)) return true
+        }
+        return false
+    }
+
     /** Auto-clicks 'Install' / 'Get' button when Play Store page is active. */
     fun autoInstallPlayStoreApp(): Boolean {
+        if (rootInActiveWindow == null) return false
         val keywords = listOf("install", "get", "download", "update")
-        val root = rootInActiveWindow ?: return false
         for (kw in keywords) {
             if (clickNodeMatching(kw)) return true
         }
@@ -507,5 +670,373 @@ class JarvisAccessibilityService : AccessibilityService() {
         } else {
             false
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Auto-Tap Chooser Dialog for Dual Apps (Vivo, Samsung, Xiaomi, etc.)
+    // ---------------------------------------------------------------
+
+    /**
+     * Called when opening a dual/cloned app instance. If an OEM system chooser popup
+     * (e.g. Vivo/Samsung/Xiaomi dual app dialog) appears on screen, automatically taps
+     * choice 1 or 2 based on [appNumber].
+     */
+    fun handleDualAppSelection(appName: String, appNumber: Int) {
+        val targetIndex = (appNumber - 1).coerceAtLeast(0)
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+        mainHandler.postDelayed(object : Runnable {
+            var attempts = 0
+            override fun run() {
+                val root = rootInActiveWindow
+                if (root != null) {
+                    val appChoices = mutableListOf<AccessibilityNodeInfo>()
+                    collectAppChooserNodes(root, appName, appChoices)
+
+                    if (appChoices.size >= 2 && targetIndex < appChoices.size) {
+                        val targetNode = appChoices[targetIndex]
+                        var clickable: AccessibilityNodeInfo? = targetNode
+                        while (clickable != null && !clickable.isClickable) {
+                            clickable = clickable.parent
+                        }
+                        val finalTarget = clickable ?: targetNode
+                        finalTarget.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        return
+                    }
+                }
+
+                attempts++
+                if (attempts < 8) {
+                    mainHandler.postDelayed(this, 250)
+                }
+            }
+        }, 200)
+    }
+
+    private fun collectAppChooserNodes(
+        node: AccessibilityNodeInfo,
+        appName: String,
+        out: MutableList<AccessibilityNodeInfo>
+    ) {
+        val label = nodeLabel(node).lowercase()
+        val lowerAppName = appName.lowercase()
+
+        if (label.isNotBlank() && (label.contains(lowerAppName) || label.contains("clone") || label.contains("dual") || label.contains("whatsapp"))) {
+            if (node.isClickable || (node.parent != null && node.parent.isClickable)) {
+                if (!out.contains(node)) {
+                    out.add(node)
+                }
+            }
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            collectAppChooserNodes(child, appName, out)
+        }
+    }
+
+    /**
+     * Monitors the screen after a WhatsApp deep-link is launched and automatically taps the Send button
+     * (content-desc="Send" or id="send" or send icon) for hands-free message delivery.
+     */
+    fun scheduleWhatsAppAutoSend() {
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        mainHandler.postDelayed(object : Runnable {
+            var attempts = 0
+            override fun run() {
+                val root = rootInActiveWindow
+                if (root != null) {
+                    val sendNode = findWhatsAppSendButton(root)
+                    if (sendNode != null) {
+                        tapNodeOrParent(sendNode)
+                        return
+                    }
+                }
+
+                attempts++
+                if (attempts < 12) {
+                    mainHandler.postDelayed(this, 300)
+                }
+            }
+        }, 500)
+    }
+
+    private fun findWhatsAppSendButton(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
+        val text = node.text?.toString()?.lowercase() ?: ""
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+
+        if (desc == "send" || desc == "send message" || text == "send" || viewId.endsWith(":id/send")) {
+            return node
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findWhatsAppSendButton(child)
+            if (result != null) return result
+        }
+        return null
+    }
+
+    /**
+     * Monitors the active WhatsApp chat screen after launching a chat and auto-taps the Voice Call or Video Call icon.
+     */
+    fun scheduleWhatsAppCallAutoTap(callType: String) {
+        val isVideo = callType.lowercase().contains("video")
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        mainHandler.postDelayed(object : Runnable {
+            var attempts = 0
+            override fun run() {
+                val root = rootInActiveWindow
+                if (root != null) {
+                    val callNode = findWhatsAppCallButton(root, isVideo)
+                    if (callNode != null) {
+                        tapNodeOrParent(callNode)
+                        return
+                    }
+                }
+
+                attempts++
+                if (attempts < 12) {
+                    mainHandler.postDelayed(this, 300)
+                }
+            }
+        }, 600)
+    }
+
+    private fun findWhatsAppCallButton(node: AccessibilityNodeInfo, isVideo: Boolean): AccessibilityNodeInfo? {
+        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+
+        val isTarget = if (isVideo) {
+            desc.contains("video call") || desc.contains("video") || viewId.endsWith(":id/video_call")
+        } else {
+            desc.contains("voice call") || desc.contains("call") || viewId.endsWith(":id/voice_call")
+        }
+
+        if (isTarget && (node.isClickable || node.parent?.isClickable == true)) {
+            return node
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findWhatsAppCallButton(child, isVideo)
+            if (result != null) return result
+        }
+        return null
+    }
+
+    /**
+     * Continuously scans Chrome web page over several seconds to find and tap download links/buttons.
+     * Excludes Chrome's URL bar, search boxes, and text input fields.
+     */
+    fun startSongDownloadScanner(songName: String = "") {
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var attempts = 0
+        val maxAttempts = 20 // 20 attempts * 500ms = 10 seconds total scan window
+
+        val scanRunnable = object : Runnable {
+            override fun run() {
+                attempts++
+                val clicked = performSongDownloadTap(songName)
+                if (clicked) {
+                    android.util.Log.d(TAG, "Successfully tapped Download link for '$songName' on attempt $attempts")
+                    return
+                }
+                if (attempts < maxAttempts) {
+                    handler.postDelayed(this, 500L)
+                } else {
+                    android.util.Log.w(TAG, "Finished scanning Chrome page for '$songName' download links after $maxAttempts attempts.")
+                }
+            }
+        }
+        // Delay 2 seconds initially so Chrome opens and page loads before scanning
+        handler.postDelayed(scanRunnable, 2000L)
+    }
+
+    private fun performSongDownloadTap(songName: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val keywords = listOf("download mp3", "download song", "320kbps", "128kbps", "download audio", "download file", "direct download")
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+
+        fun isInputFieldOrSearchBar(node: AccessibilityNodeInfo): Boolean {
+            val cls = node.className?.toString() ?: ""
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            if (cls.contains("EditText") || cls.contains("AutoCompleteTextView")) return true
+            if (viewId.contains("url_bar") || viewId.contains("search_box") || viewId.contains("search_src_text") ||
+                viewId.contains("search_plate") || viewId.contains("location_bar") || viewId.contains("toolbar")) return true
+            return false
+        }
+
+        fun scanDownloadNodes(node: AccessibilityNodeInfo) {
+            if (isInputFieldOrSearchBar(node)) {
+                return // Do not process search bar or input field
+            }
+
+            val label = nodeLabel(node).lowercase()
+            if (label.isNotBlank()) {
+                // Ignore search query text echoed in search result header or search bar
+                val isSearchQueryEcho = songName.isNotBlank() && label == songName.lowercase()
+                if (!isSearchQueryEcho && keywords.any { label.contains(it) }) {
+                    candidates.add(node)
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                scanDownloadNodes(child)
+            }
+        }
+
+        scanDownloadNodes(root)
+
+        val target = candidates.firstOrNull { node ->
+            !isInputFieldOrSearchBar(node) && (node.isClickable || node.parent?.isClickable == true)
+        }
+
+        if (target != null) {
+            return tapNodeOrParent(target)
+        }
+
+        // Phase 2: If no direct download button found on active screen, tap top search result link
+        val searchResultCandidates = mutableListOf<AccessibilityNodeInfo>()
+        fun scanSearchResultNodes(node: AccessibilityNodeInfo) {
+            if (isInputFieldOrSearchBar(node)) return
+            val label = nodeLabel(node).lowercase()
+            if (label.isNotBlank() && label.length > 8) {
+                val isSearchQueryEcho = songName.isNotBlank() && label == songName.lowercase()
+                val isResultTitle = label.contains("mp3") || label.contains("song") || label.contains("download") ||
+                        label.contains("pagalworld") || label.contains("songspk") || label.contains("jiosaavn") ||
+                        (songName.isNotBlank() && label.contains(songName.lowercase()))
+                if (!isSearchQueryEcho && isResultTitle) {
+                    searchResultCandidates.add(node)
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                scanSearchResultNodes(child)
+            }
+        }
+
+        scanSearchResultNodes(root)
+
+        val resultTarget = searchResultCandidates.firstOrNull { node ->
+            !isInputFieldOrSearchBar(node) && (node.isClickable || node.parent?.isClickable == true)
+        }
+
+        if (resultTarget != null) {
+            android.util.Log.d(TAG, "Tapping search result link: ${nodeLabel(resultTarget)}")
+            return tapNodeOrParent(resultTarget)
+        }
+
+        return false
+    }
+
+    /**
+     * Dedicated scanner for pagalnew.com song downloading:
+     * Step 1: Tap first search result link on Google for pagalnew.com
+     * Step 2: Once pagalnew page opens, scroll down if needed and tap 320 Kbps or 128 Kbps download button!
+     */
+    fun startPagalNewSongScanner(songName: String = "") {
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        
+        // Step 1: Tap top pagalnew.com search result link on Google
+        handler.postDelayed({
+            val tappedLink = performPagalNewResultTap(songName)
+            android.util.Log.d(TAG, "PagalNew Step 1 link tap result: $tappedLink")
+
+            // Step 2: On pagalnew song page, scan for 320kbps / 128kbps download buttons
+            var downloadAttempts = 0
+            val maxDownloadAttempts = 16
+
+            val downloadScanRunnable = object : Runnable {
+                override fun run() {
+                    downloadAttempts++
+                    var clicked = performPagalNewDownloadTap()
+                    
+                    // If download button not found on screen yet, scroll down slightly to reveal download options
+                    if (!clicked && (downloadAttempts == 3 || downloadAttempts == 6)) {
+                        android.util.Log.d(TAG, "Scrolling down pagalnew page to reveal download options...")
+                        scrollScreen(isDown = true)
+                    }
+
+                    if (clicked) {
+                        android.util.Log.d(TAG, "Successfully tapped pagalnew download button on attempt $downloadAttempts")
+                        return
+                    }
+
+                    if (downloadAttempts < maxDownloadAttempts) {
+                        handler.postDelayed(this, 600L)
+                    }
+                }
+            }
+            // Delay 2.5 seconds after tapping link so song page opens
+            handler.postDelayed(downloadScanRunnable, 2500L)
+        }, 1800L)
+    }
+
+    private fun performPagalNewResultTap(songName: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+
+        fun scanResult(node: AccessibilityNodeInfo) {
+            val cls = node.className?.toString() ?: ""
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            if (cls.contains("EditText") || viewId.contains("url_bar") || viewId.contains("search_box")) return
+
+            val label = nodeLabel(node).lowercase()
+            if (label.isNotBlank() && label.length > 6) {
+                if (label.contains("pagalnew") || (songName.isNotBlank() && label.contains(songName.lowercase()))) {
+                    candidates.add(node)
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                scanResult(child)
+            }
+        }
+
+        scanResult(root)
+
+        val target = candidates.firstOrNull { node -> node.isClickable || node.parent?.isClickable == true }
+        if (target != null) {
+            return tapNodeOrParent(target)
+        }
+        return false
+    }
+
+    private fun performPagalNewDownloadTap(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val keywords = listOf("320 kbps", "128 kbps", "320kbps", "128kbps", "download 320", "download 128", "download mp3", "download song", "download")
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+
+        fun scanDownload(node: AccessibilityNodeInfo) {
+            val cls = node.className?.toString() ?: ""
+            val viewId = node.viewIdResourceName?.lowercase() ?: ""
+            if (cls.contains("EditText") || viewId.contains("url_bar") || viewId.contains("search_box")) return
+
+            val label = nodeLabel(node).lowercase()
+            if (label.isNotBlank()) {
+                if (keywords.any { label.contains(it) }) {
+                    candidates.add(node)
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                scanDownload(child)
+            }
+        }
+
+        scanDownload(root)
+
+        // Prioritize 320kbps or 128kbps buttons
+        val bestTarget = candidates.firstOrNull { node ->
+            val label = nodeLabel(node).lowercase()
+            (label.contains("320") || label.contains("128")) && (node.isClickable || node.parent?.isClickable == true)
+        } ?: candidates.firstOrNull { node -> node.isClickable || node.parent?.isClickable == true }
+
+        if (bestTarget != null) {
+            return tapNodeOrParent(bestTarget)
+        }
+        return false
     }
 }

@@ -14,6 +14,7 @@ class JarvisApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.jarvis.assistant.security.SecurityGuard.performSecurityAudit(this)
         com.jarvis.assistant.firebase.FirebaseManager.init(this)
         installCrashHandler()
     }

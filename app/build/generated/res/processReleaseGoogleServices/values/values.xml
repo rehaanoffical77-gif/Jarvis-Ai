@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="gcm_defaultSenderId" translatable="false">133761514499</string>
-    <string name="google_api_key" translatable="false">AIzaSyBnjtliWKmVL7KAkoVGuQcP6ZGczHMQTCo</string>
-    <string name="google_app_id" translatable="false">1:133761514499:android:0be78901982c07afab2236</string>
-    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyBnjtliWKmVL7KAkoVGuQcP6ZGczHMQTCo</string>
-    <string name="google_storage_bucket" translatable="false">jarvis-ai-a09b2.firebasestorage.app</string>
-    <string name="project_id" translatable="false">jarvis-ai-a09b2</string>
-</resources>
