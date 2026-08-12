@@ -2,6 +2,6 @@
   "versionCode": 2,
   "versionName": "1.1.0",
   "apkUrl": "https://github.com/rehaanoffical77-gif/Jarvis-Ai/releases/download/v1.1.0/Jarvis-AI-Release.apk",
-  "changelog": "• Added In-App Auto-Updater for automatic new feature delivery\n• Enhanced R8 bytecode obfuscation & anti-reverse engineering protections\n• Fixed Activity export security vulnerabilities & enabled KeyStore encryption",
+  "changelog": "• Fixed Website Generator: Tailors websites to Gyms, Salons, Bakeries, Tech, Real Estate, E-Commerce\n• Added Gemini REST AI Website Engine for zero-setup generation\n• Enhanced R8 bytecode obfuscation & anti-reverse engineering rules",
   "forceUpdate": false
 }
