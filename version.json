@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1.0",
+  "versionCode": 3,
+  "versionName": "1.2.0",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Fixed Website Generator: Tailors websites to Gyms, Salons, Bakeries, Tech, Real Estate, E-Commerce\n• Added Gemini REST AI Website Engine for zero-setup generation\n• Enhanced R8 bytecode obfuscation & anti-reverse engineering rules",
+  "changelog": "• Restricted Website Generation exclusively to OpenRouter API\n• OpenRouter API Key required notice if key is missing\n• Fixed JARVIS voice response phrasing to natural 1st-person (\"Oh yeah Sir, I have started coding your website!\")",
   "forceUpdate": false
 }

@@ -98,6 +98,12 @@ class WebsiteBuilderActivity : AppCompatActivity() {
 
         generateWebsiteBtn.pressFeedback()
         generateWebsiteBtn.setOnClickListener {
+            val key = OpenRouterWebsiteGenerator.getApiKey(this)
+            if (key.isBlank()) {
+                Toast.makeText(this, "Please enter and save your OpenRouter API key above first!", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
             val name = testWebsiteNameInput.text.toString().trim()
             val desc = testWebsiteDescInput.text.toString().trim()
 

@@ -615,48 +615,52 @@ class JarvisVoiceService : Service() {
                     result.put("message", "Opening Google Play Store for $appName and starting auto-installer.")
                 }
                 "create_website" -> {
-                    val websiteName = args.optString("website_name", "").ifBlank { args.optString("name", "") }
+                    val websiteName = args.optString("website_name", "").ifBlank { args.optString("name", "JarvisWebsite") }
                     val businessDesc = args.optString("business_description", "").ifBlank { websiteName }
+                    val openRouterKey = com.jarvis.assistant.util.OpenRouterWebsiteGenerator.getApiKey(this)
 
-                    val phase1Msg = "I am gathering all information, sir."
+                    if (openRouterKey.isBlank()) {
+                        val noKeyMsg = "Sir, please add your OpenRouter API key in Settings under Website Builder to create websites."
+                        speakAloud(noKeyMsg)
+                        result.put("success", false)
+                        result.put("message", noKeyMsg)
+                    } else {
+                        val startMsg = "Oh yeah Sir, I have started coding your $websiteName website!"
+                        speakAloud(startMsg)
+                        result.put("success", true)
+                        result.put("message", startMsg)
 
-                    toolScope.launch {
-                        // 1. Wait 2.5s for Gemini Live to finish speaking "I am gathering all information, sir."
-                        delay(2500L)
+                        toolScope.launch {
+                            delay(2000L)
 
-                        // 2. Announce code writing via natural human JARVIS voice (Gemini Live)
-                        geminiLive?.sendText("Sir, I am writing code now.")
-                        delay(1500L)
-
-                        // 3. NOW open code preview window overlay on screen as line-by-line typing begins
-                        val overlayIntent = Intent(this@JarvisVoiceService, com.jarvis.assistant.service.WebsiteOverlayService::class.java).apply {
-                            action = com.jarvis.assistant.service.WebsiteOverlayService.ACTION_SHOW
-                            putExtra(com.jarvis.assistant.service.WebsiteOverlayService.EXTRA_WEBSITE_NAME, websiteName)
-                        }
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                startForegroundService(overlayIntent)
-                            } else {
-                                startService(overlayIntent)
+                            val overlayIntent = Intent(this@JarvisVoiceService, com.jarvis.assistant.service.WebsiteOverlayService::class.java).apply {
+                                action = com.jarvis.assistant.service.WebsiteOverlayService.ACTION_SHOW
+                                putExtra(com.jarvis.assistant.service.WebsiteOverlayService.EXTRA_WEBSITE_NAME, websiteName)
                             }
-                        } catch (e: Exception) {
-                            Log.e("JarvisVoiceService", "startForegroundService overlay failed", e)
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    startForegroundService(overlayIntent)
+                                } else {
+                                    startService(overlayIntent)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("JarvisVoiceService", "startForegroundService overlay failed", e)
+                            }
+
+                            val genRes = com.jarvis.assistant.util.OpenRouterWebsiteGenerator.generateWebsite(
+                                context = this@JarvisVoiceService,
+                                websiteName = websiteName,
+                                businessDescription = businessDesc
+                            )
+
+                            delay(500L)
+                            if (genRes.success) {
+                                speakAloud("Sir, I have finished coding your website! Please check your mobile screen.")
+                            } else {
+                                speakAloud("Sir, website creation encountered an issue: ${genRes.message}")
+                            }
                         }
-
-                        // 4. Write HTML, CSS, JS line by line onto preview bar
-                        com.jarvis.assistant.util.OpenRouterWebsiteGenerator.generateWebsite(
-                            context = this@JarvisVoiceService,
-                            websiteName = websiteName,
-                            businessDescription = businessDesc
-                        )
-
-                        // 5. Announce completion via natural human JARVIS voice
-                        delay(600L)
-                        geminiLive?.sendText("I have created a website, sir. Your code is on your mobile, please check it.")
                     }
-
-                    result.put("success", true)
-                    result.put("message", phase1Msg)
                 }
                 "search_in_chrome" -> {
                     val query = args.optString("query", "")
