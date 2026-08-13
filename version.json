@@ -1,7 +1,7 @@
 {
-  "versionCode": 4,
-  "versionName": "1.3.0",
+  "versionCode": 5,
+  "versionName": "1.4.0",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Fixed OpenRouter Code Writing: Added JSON substring extraction & Markdown code-block regex parsing\n• Added Automatic Fallback Model Retries (Llama 3.3 70B, DeepSeek R1, Qwen 2.5, Mistral)\n• Enhanced error reporting for invalid OpenRouter keys & network timeouts",
+  "changelog": "• Continuous Wake-Word Engine (Jarvis, Hi/Hey/Hello Jarvis standby during idle silence)\n• Background Music Player & Floating Music Overlay HUD (Play, Pause, Next, Prev, Timing Bar)\n• Fast Flash Downloader to 'Jarvis Songs' folder\n• Strict Background Mode ('Jarvis go to background')\n• Control Center Brightness & Media Volume step fixes",
   "forceUpdate": false
 }
