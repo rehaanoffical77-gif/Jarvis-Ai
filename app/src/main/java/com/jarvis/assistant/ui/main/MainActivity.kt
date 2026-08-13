@@ -315,6 +315,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun setWindowBrightness(brightness255: Int) {
+        applyBrightness(((brightness255 / 255f) * 100).toInt())
+    }
+
     fun resetWindowBrightnessOverride() {
         runOnUiThread {
             try {

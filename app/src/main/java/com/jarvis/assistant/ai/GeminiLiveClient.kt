@@ -295,6 +295,33 @@ class GeminiLiveClient(
                             })
                         })
                         put(JSONObject().apply {
+                            put("name", "control_floating_orb")
+                            put("description",
+                                "Controls the floating 3D Voice Orb overlay widget on screen. Hides it or shows it. " +
+                                "Use when the user says 'floating Voice Orb off', 'Overlay off', 'hide floating orb', 'turn off overlay', " +
+                                "'floating Voice Orb on', 'Overlay on', 'show floating orb', 'turn on overlay'. " +
+                                "Turning off the overlay hides the floating orb widget on screen but keeps JARVIS fully active and talking in the background.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "'off' or 'hide' to turn off/hide the floating orb; 'on' or 'show' to show it back.")
+                                    })
+                                })
+                                put("required", JSONArray().put("action"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "send_to_background")
+                            put("description",
+                                "Puts JARVIS into strictly silent background mode where JARVIS only listens for wake words ('Jarvis', 'hey Jarvis', 'hi Jarvis', 'hello Jarvis') and ignores all background conversation. Use when user says 'go to background', 'be in the background', 'work in background', 'background me jao', 'stay in background'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+                        put(JSONObject().apply {
                             put("name", "search_playstore_and_install")
                             put("description",
                                 "Searches Google Play Store for an app by name and installs it automatically. Use whenever the user asks " +
@@ -361,6 +388,24 @@ class GeminiLiveClient(
                                     })
                                 })
                                 put("required", JSONArray().put("song_name"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "play_music")
+                            put("description",
+                                "Plays a song in the background with a floating music overlay HUD controls (Play, Pause, Next, Prev, Timing Seek Bar). Flash downloads the song into the 'Jarvis Songs' folder if not present, and plays instantly. Supports actions: 'play', 'pause', 'resume', 'next', 'previous', 'stop'. Use for 'Jarvis play Admiring You', 'play Kesariya', 'pause music', 'next song', 'previous song'.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("song_name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Title or query of the song to play (e.g. \"Admiring You\", \"Kesariya\", \"Tum Hi Ho\").")
+                                    })
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Action to perform: 'play', 'pause', 'resume', 'next', 'previous', 'stop'. Default is 'play'.")
+                                    })
+                                })
                             })
                         })
                         put(JSONObject().apply {

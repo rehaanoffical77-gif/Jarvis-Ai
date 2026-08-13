@@ -36,7 +36,7 @@ class WakeWordDetector(private val context: Context) {
         // English regardless of whatever language the conversation itself
         // uses (e.g. Hinglish) — this makes detection far more reliable.
         private const val WAKE_LANGUAGE = "en-IN"
-        private val WAKE_PHRASES = listOf("jarvis", "javis", "jarvis's", "jarvish")
+        private val WAKE_PHRASES = listOf("jarvis", "hi jarvis", "hey jarvis", "hello jarvis", "ok jarvis", "okay jarvis", "activate jarvis", "javis", "jarvis's", "jarvish")
         private const val RESTART_DELAY_MS = 300L
     }
 

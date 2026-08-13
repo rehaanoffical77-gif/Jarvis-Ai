@@ -119,6 +119,7 @@ class JarvisVoiceService : Service() {
 
     private var isAppInForeground = true
     private var isActivatedSession = false
+    private var isStrictBackgroundMode = false
     private var activeSessionTimerJob: Job? = null
 
     fun setAppForeground(isForeground: Boolean) {
@@ -165,8 +166,8 @@ class JarvisVoiceService : Service() {
         currentTurnInputText.clear()
         currentTurnOutputText.clear()
         interruptSentThisTurn = false
-        // Allow immediate turns ONLY if app is in foreground OR if an active background turn was explicitly triggered via wake phrase
-        currentTurnHasWakeWord = isAppInForeground || isActivatedSession
+        // In strict background mode, require explicit wake word for every turn.
+        currentTurnHasWakeWord = if (isStrictBackgroundMode) false else (isAppInForeground || isActivatedSession)
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -739,6 +740,62 @@ class JarvisVoiceService : Service() {
                     result.put("success", launched)
                     result.put("message", "Opened Chrome for pagalnew.com $fullQuery research.")
                 }
+                "play_music" -> {
+                    val songName = args.optString("song_name", "").ifBlank { args.optString("query", "") }.ifBlank { args.optString("title", "") }
+                    val action = args.optString("action", "play").lowercase()
+
+                    when (action) {
+                        "pause" -> {
+                            com.jarvis.assistant.service.FloatingMusicOverlayService.togglePlayPause(this)
+                            result.put("success", true)
+                            result.put("message", "Paused background music.")
+                        }
+                        "resume" -> {
+                            com.jarvis.assistant.service.FloatingMusicOverlayService.togglePlayPause(this)
+                            result.put("success", true)
+                            result.put("message", "Resumed background music.")
+                        }
+                        "next" -> {
+                            com.jarvis.assistant.service.FloatingMusicOverlayService.nextTrack(this)
+                            result.put("success", true)
+                            result.put("message", "Playing next track.")
+                        }
+                        "previous", "prev" -> {
+                            com.jarvis.assistant.service.FloatingMusicOverlayService.previousTrack(this)
+                            result.put("success", true)
+                            result.put("message", "Playing previous track.")
+                        }
+                        "stop" -> {
+                            com.jarvis.assistant.service.FloatingMusicOverlayService.stopService(this)
+                            result.put("success", true)
+                            result.put("message", "Stopped background music.")
+                        }
+                        else -> {
+                            if (songName.isBlank()) {
+                                com.jarvis.assistant.service.FloatingMusicOverlayService.togglePlayPause(this)
+                                result.put("success", true)
+                                result.put("message", "Toggled background music play/pause.")
+                            } else {
+                                toolScope.launch {
+                                    val songRes = com.jarvis.assistant.util.JarvisSongsManager.getOrDownloadSong(this@JarvisVoiceService, songName)
+                                    if (songRes.success && songRes.songFile != null) {
+                                        com.jarvis.assistant.service.FloatingMusicOverlayService.playSong(
+                                            this@JarvisVoiceService,
+                                            songRes.songFile.absolutePath,
+                                            songRes.title
+                                        )
+                                    } else {
+                                        withContext(Dispatchers.Main) {
+                                            Toast.makeText(applicationContext, "Could not find or download $songName", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                                result.put("success", true)
+                                result.put("message", "Playing $songName with floating music HUD overlay.")
+                            }
+                        }
+                    }
+                }
                 "tap_screen_by_text" -> {
                     val text = args.optString("text", "")
                     val svc = JarvisAccessibilityService.instance
@@ -911,6 +968,26 @@ class JarvisVoiceService : Service() {
                     result.put("success", true)
                     result.put("message", "Re-opened website code preview bar overlay on screen.")
                 }
+                "control_floating_orb" -> {
+                    val action = args.optString("action", "off").lowercase()
+                    if (action == "off" || action == "hide") {
+                        com.jarvis.assistant.service.FloatingOrbService.stopService(this@JarvisVoiceService)
+                        val msg = "Floating Voice Orb turned off, sir. I am running and talking in the background."
+                        result.put("success", true)
+                        result.put("message", msg)
+                    } else {
+                        com.jarvis.assistant.service.FloatingOrbService.startService(this@JarvisVoiceService)
+                        val msg = "Floating Voice Orb turned back on, sir."
+                        result.put("success", true)
+                        result.put("message", msg)
+                    }
+                }
+                "send_to_background" -> {
+                    isStrictBackgroundMode = true
+                    val msg = "Sir, I am in the background. If you want me to work, please say my wake-up words."
+                    result.put("success", true)
+                    result.put("message", msg)
+                }
                 "shutdown_jarvis" -> {
                     result.put("success", true)
                     result.put("message", "JARVIS is turning off. Goodbye!")
@@ -933,29 +1010,86 @@ class JarvisVoiceService : Service() {
         sendToolResponse(callId, name, result)
     }
 
+    private fun parseIntegerFromAny(obj: Any?): Int {
+        if (obj == null) return -1
+        if (obj is Int) return obj
+        if (obj is Double) return obj.toInt()
+        if (obj is Long) return obj.toInt()
+        if (obj is Float) return obj.toInt()
+        if (obj is String) {
+            val digits = obj.replace(Regex("[^0-9]"), "")
+            if (digits.isNotEmpty()) {
+                return digits.toIntOrNull() ?: -1
+            }
+        }
+        return -1
+    }
+
     private fun adjustVolume(args: JSONObject): Boolean {
         return try {
-            val actionStr = (args.optString("action", "") + " " + args.optString("direction", "") + " " + args.optString("mode", "")).lowercase()
-            val percent = listOf("percentage", "percent", "level", "value", "vol", "volume")
-                .map { if (args.has(it)) args.optInt(it, -1) else -1 }
-                .firstOrNull { it in 0..100 } ?: -1
+            val rawAction = args.optString("action", "").lowercase()
+            val rawDir = args.optString("direction", "").lowercase()
+            val rawMode = args.optString("mode", "").lowercase()
+            val combinedStr = "$rawAction $rawDir $rawMode".lowercase()
 
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            Log.d("JarvisVoiceService", "adjustVolume raw args: $args")
 
-            val isDecrease = actionStr.contains("decrease") || actionStr.contains("down") || actionStr.contains("lower") || actionStr.contains("kam") || actionStr.contains("reduce") || actionStr.contains("less")
-            val isIncrease = actionStr.contains("increase") || actionStr.contains("up") || actionStr.contains("raise") || actionStr.contains("badhao") || actionStr.contains("more") || actionStr.contains("high")
-
-            val targetVol = when {
-                percent in 0..100 -> ((percent / 100f) * maxVol).toInt().coerceIn(1, maxVol)
-                isDecrease -> (currentVol - (maxVol * 0.20f).toInt().coerceAtLeast(1)).coerceAtLeast(1)
-                isIncrease -> (currentVol + (maxVol * 0.20f).toInt().coerceAtLeast(1)).coerceAtMost(maxVol)
-                else -> currentVol
+            var percent = -1
+            // Inspect all fields in JSON object for a percentage / level number
+            val keys = args.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val parsed = parseIntegerFromAny(args.get(key))
+                if (parsed in 0..100) {
+                    percent = parsed
+                    break
+                }
             }
 
-            // Apply ONLY to STREAM_MUSIC (Media Volume). Do NOT touch ringer/notification streams!
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, AudioManager.FLAG_SHOW_UI)
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+            val isDecrease = combinedStr.contains("decrease") || combinedStr.contains("down") || combinedStr.contains("lower") || combinedStr.contains("kam") || combinedStr.contains("reduce") || combinedStr.contains("less") || combinedStr.contains("minus")
+            val isIncrease = combinedStr.contains("increase") || combinedStr.contains("up") || combinedStr.contains("raise") || combinedStr.contains("badhao") || combinedStr.contains("more") || combinedStr.contains("high") || combinedStr.contains("plus")
+
+            var finalDisplayPercent = percent
+
+            if (percent in 0..100) {
+                // Apply exact target percentage across STREAM_MUSIC and STREAM_VOICE_CALL
+                val streams = listOf(AudioManager.STREAM_MUSIC, AudioManager.STREAM_VOICE_CALL)
+                for (stream in streams) {
+                    try {
+                        val maxVol = audioManager.getStreamMaxVolume(stream)
+                        val targetVol = kotlin.math.round((percent / 100f) * maxVol).toInt().coerceIn(0, maxVol)
+                        audioManager.setStreamVolume(stream, targetVol, AudioManager.FLAG_SHOW_UI)
+                        Log.d("JarvisVoiceService", "Set stream $stream to targetVol=$targetVol for $percent%")
+                    } catch (e: Exception) {
+                        Log.e("JarvisVoiceService", "Error setting stream $stream: ${e.message}")
+                    }
+                }
+                finalDisplayPercent = percent
+            } else if (isDecrease) {
+                try { audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI) } catch (_: Exception) {}
+                try { audioManager.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL, AudioManager.ADJUST_LOWER, 0) } catch (_: Exception) {}
+                val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                finalDisplayPercent = kotlin.math.round((curVol.toFloat() / maxVol.toFloat()) * 100).toInt()
+            } else if (isIncrease) {
+                try { audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI) } catch (_: Exception) {}
+                try { audioManager.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL, AudioManager.ADJUST_RAISE, 0) } catch (_: Exception) {}
+                val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                finalDisplayPercent = kotlin.math.round((curVol.toFloat() / maxVol.toFloat()) * 100).toInt()
+            } else {
+                Log.w("JarvisVoiceService", "adjustVolume: no direction or percent found in $args")
+                val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                finalDisplayPercent = kotlin.math.round((curVol.toFloat() / maxVol.toFloat()) * 100).toInt()
+            }
+
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(applicationContext, "🔊 Volume: $finalDisplayPercent%", Toast.LENGTH_SHORT).show()
+            }
+
             true
         } catch (e: Exception) {
             android.util.Log.e("JarvisVoiceService", "adjustVolume failed", e)
@@ -966,9 +1100,21 @@ class JarvisVoiceService : Service() {
     private fun adjustBrightness(args: JSONObject): Boolean {
         return try {
             val actionStr = (args.optString("action", "") + " " + args.optString("direction", "") + " " + args.optString("mode", "")).lowercase()
-            val percent = listOf("percentage", "percent", "level", "value", "brightness")
-                .map { if (args.has(it)) args.optInt(it, -1) else -1 }
-                .firstOrNull { it in 0..100 } ?: -1
+            
+            var percent = -1
+            val keys = listOf("percentage", "percent", "level", "value", "brightness")
+            for (k in keys) {
+                if (args.has(k)) {
+                    val valObj = args.get(k)
+                    if (valObj is Int) percent = valObj
+                    else if (valObj is Double) percent = valObj.toInt()
+                    else if (valObj is String) {
+                        val cleanDigits = valObj.replace(Regex("[^0-9]"), "")
+                        if (cleanDigits.isNotEmpty()) percent = cleanDigits.toIntOrNull() ?: -1
+                    }
+                }
+                if (percent in 0..100) break
+            }
 
             val isDecrease = actionStr.contains("decrease") || actionStr.contains("down") || actionStr.contains("lower") || actionStr.contains("kam") || actionStr.contains("reduce") || actionStr.contains("less")
             val isIncrease = actionStr.contains("increase") || actionStr.contains("up") || actionStr.contains("raise") || actionStr.contains("badhao") || actionStr.contains("more") || actionStr.contains("high")
@@ -985,13 +1131,23 @@ class JarvisVoiceService : Service() {
                 else -> currentBrightness
             }
 
-            // Reset local window override so Android System Control Center brightness slider stays in 100% sync
-            com.jarvis.assistant.ui.main.MainActivity.instance?.resetWindowBrightnessOverride()
+            val targetFloat = (targetBrightnessInt / 255f).coerceIn(0.05f, 1f)
+            val targetPercentDisplay = (targetFloat * 100).toInt()
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.System.canWrite(this)) {
                 try {
                     Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
                     Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, targetBrightnessInt)
+                    try {
+                        // Set Android 11+ (API 30+) float brightness setting which controls System UI / Control Center brightness slider
+                        Settings.System.putFloat(cr, "screen_brightness_float", targetFloat)
+                    } catch (_: Exception) {}
+
+                    // Force Android Quick Settings / Control Center bar URIs to update position
+                    cr.notifyChange(Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS), null)
+                    try {
+                        cr.notifyChange(Settings.System.getUriFor("screen_brightness_float"), null)
+                    } catch (_: Exception) {}
                 } catch (e: Exception) {
                     android.util.Log.e("JarvisVoiceService", "Settings.System write failed", e)
                 }
@@ -1002,6 +1158,14 @@ class JarvisVoiceService : Service() {
                 }
                 startActivity(intent)
             }
+
+            // Sync top window brightness in MainActivity
+            com.jarvis.assistant.ui.main.MainActivity.instance?.setWindowBrightness(targetBrightnessInt)
+
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(applicationContext, "☀️ JARVIS Brightness: $targetPercentDisplay%", Toast.LENGTH_SHORT).show()
+            }
+
             true
         } catch (e: Exception) {
             android.util.Log.e("JarvisVoiceService", "adjustBrightness failed", e)

@@ -134,6 +134,15 @@
         </service>
 
         <service
+            android:name=".service.FloatingMusicOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating Music Player Overlay Window" />
+        </service>
+
+        <service
             android:name=".service.JarvisAccessibilityService"
             android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
