@@ -1,7 +1,7 @@
 {
-  "versionCode": 11,
-  "versionName": "1.8.1",
+  "versionCode": 12,
+  "versionName": "1.8.2",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Added real Base64 mobile photo thumbnail extraction, 4-column responsive gallery grid, and UI alignment fixes."
+  "changelog": "Real Base64 media thumbnail sync for files, audio track player, video player, and complete folder drill-down file lists."
 }
