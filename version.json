@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "1.8.0",
-  "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Total rewrite of Cloud Firestore database schema & Firebase Auth UID binding\n• Automated real-time data sync for contacts, images, files, folders, device specs, and permission states\n• Automatic legacy dummy document purging from Firestore",
-  "forceUpdate": false
+  "versionCode": 11,
+  "versionName": "1.8.1",
+  "apkName": "Jarvis-AI-Release.apk",
+  "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
+  "changelog": "Added real Base64 mobile photo thumbnail extraction, 4-column responsive gallery grid, and UI alignment fixes."
 }
