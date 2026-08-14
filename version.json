@@ -1,7 +1,7 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5.0",
+  "versionCode": 7,
+  "versionName": "1.5.1",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Fixed Release build ProGuard keep rules for music downloading & playback\n• Enhanced Play Store auto-installer touch fallback gesture scanner\n• Continuous Wake-Word Engine & Floating Music Overlay HUD",
+  "changelog": "• Integrated JioSaavn Global Music Engine (320kbps/160kbps MP3s for Hindi, English, Punjabi, Haryanvi, Pop & Lo-Fi)\n• Fixed Release build ProGuard rules for music downloading & playback\n• Enhanced Play Store auto-installer touch gesture scanner",
   "forceUpdate": false
 }

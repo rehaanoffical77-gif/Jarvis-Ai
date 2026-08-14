@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLDecoder
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 /**
- * Manages the "Jarvis Songs" storage folder, fast flash downloading of MP3 files,
+ * Manages the "Jarvis Songs" storage folder, ultra-fast JioSaavn & multi-source audio downloading,
  * and local playlist indexing for Next / Previous track playback.
  */
 object JarvisSongsManager {
@@ -58,7 +59,10 @@ object JarvisSongsManager {
     /** Scans the "Jarvis Songs" folder and returns all available MP3 files. */
     fun getPlaylistTracks(): List<SongFile> {
         val folder = getJarvisSongsFolder()
-        val files = folder.listFiles { _, name -> name.lowercase().endsWith(".mp3") } ?: emptyArray()
+        val files = folder.listFiles { _, name ->
+            val l = name.lowercase()
+            l.endsWith(".mp3") || l.endsWith(".mp4") || l.endsWith(".m4a")
+        } ?: emptyArray()
         return files.sortedBy { it.name.lowercase() }.map { file ->
             val cleanTitle = file.nameWithoutExtension.replace("_", " ").trim()
             SongFile(cleanTitle, file)
@@ -71,7 +75,6 @@ object JarvisSongsManager {
         val cleanQuery = query.lowercase().trim().replace(Regex("[^a-z0-9]"), "")
         val tracks = getPlaylistTracks()
 
-        // 1. Exact or substring match
         for (track in tracks) {
             val trackClean = track.title.lowercase().replace(Regex("[^a-z0-9]"), "")
             if (trackClean.contains(cleanQuery) || cleanQuery.contains(trackClean)) {
@@ -84,7 +87,8 @@ object JarvisSongsManager {
     /**
      * Flash Fast Download & Retrieval:
      * 1. If song exists locally in "Jarvis Songs", returns immediately.
-     * 2. If not, searches online and downloads directly via fast HTTP stream to "Jarvis Songs".
+     * 2. If not, searches JioSaavn global audio API and downloads direct MP3 stream.
+     * 3. Fallback: Multi-source web search scraper.
      */
     suspend fun getOrDownloadSong(context: Context, songQuery: String): PlayResult = withContext(Dispatchers.IO) {
         if (songQuery.isBlank()) {
@@ -111,12 +115,12 @@ object JarvisSongsManager {
             val targetFolder = getJarvisSongsFolder()
             val targetFile = File(targetFolder, fileName)
 
-            Log.d(TAG, "Searching MP3 link for flash download: $cleanTitle")
+            Log.d(TAG, "Searching global audio engine for: $cleanTitle")
             val downloadUrl = findDirectMp3Url(cleanTitle)
 
             if (!downloadUrl.isNullOrBlank()) {
-                Log.d(TAG, "Flash downloading MP3 from $downloadUrl to ${targetFile.absolutePath}")
-                
+                Log.d(TAG, "Flash downloading audio from $downloadUrl to ${targetFile.absolutePath}")
+
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "⚡ Flash downloading $cleanTitle to Jarvis Songs...", Toast.LENGTH_SHORT).show()
                 }
@@ -172,6 +176,76 @@ object JarvisSongsManager {
     }
 
     private fun findDirectMp3Url(songQuery: String): String? {
+        // 1. Primary Engine: JioSaavn Global High Quality Audio API (Hindi, English, Punjabi, Pop, Regional, EDM)
+        val saavnAudioUrl = searchJioSaavnApi(songQuery)
+        if (!saavnAudioUrl.isNullOrBlank()) {
+            Log.d(TAG, "Found high quality audio link via JioSaavn Engine: $saavnAudioUrl")
+            return saavnAudioUrl
+        }
+
+        // 2. Fallback Engine: Multi-source web search scraper
+        return searchMultiSourceWeb(songQuery)
+    }
+
+    private fun searchJioSaavnApi(songQuery: String): String? {
+        try {
+            val encodedQuery = URLEncoder.encode(songQuery, "UTF-8")
+            val searchApiUrl = "https://jiosaavn-api-v3.vercel.app/search?query=$encodedQuery"
+
+            val req = Request.Builder().url(searchApiUrl).header("User-Agent", USER_AGENT).build()
+            val resp = httpClient.newCall(req).execute()
+            val jsonStr = resp.body?.string() ?: ""
+
+            if (jsonStr.isBlank()) return null
+            val rootObj = JSONObject(jsonStr)
+
+            if (rootObj.optBoolean("status", false) && rootObj.has("results")) {
+                val resultsArray = rootObj.getJSONArray("results")
+                if (resultsArray.length() > 0) {
+                    val firstItem = resultsArray.getJSONObject(0)
+
+                    val songId = firstItem.optString("id", "")
+                    if (songId.isNotBlank()) {
+                        val detailApiUrl = "https://jiosaavn-api-v3.vercel.app/song?id=$songId"
+                        val detailReq = Request.Builder().url(detailApiUrl).header("User-Agent", USER_AGENT).build()
+                        val detailResp = httpClient.newCall(detailReq).execute()
+                        val detailJsonStr = detailResp.body?.string() ?: ""
+
+                        if (detailJsonStr.isNotBlank()) {
+                            val detailObj = JSONObject(detailJsonStr)
+
+                            if (detailObj.has("media_urls")) {
+                                val mediaUrls = detailObj.getJSONObject("media_urls")
+                                val url320 = mediaUrls.optString("320_KBPS", "")
+                                if (url320.isNotBlank() && url320.startsWith("http")) return url320
+
+                                val url160 = mediaUrls.optString("160_KBPS", "")
+                                if (url160.isNotBlank() && url160.startsWith("http")) return url160
+                            }
+
+                            val directMediaUrl = detailObj.optString("media_url", "")
+                            if (directMediaUrl.isNotBlank() && directMediaUrl.startsWith("http")) {
+                                return directMediaUrl
+                            }
+                        }
+                    }
+
+                    if (firstItem.has("more_info")) {
+                        val moreInfo = firstItem.getJSONObject("more_info")
+                        val vlink = moreInfo.optString("vlink", "")
+                        if (vlink.isNotBlank() && vlink.startsWith("http")) {
+                            return vlink
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in searchJioSaavnApi for '$songQuery': ${e.message}")
+        }
+        return null
+    }
+
+    private fun searchMultiSourceWeb(songQuery: String): String? {
         try {
             val searchQueries = listOf(
                 "site:pagalnew.com $songQuery",
@@ -228,7 +302,7 @@ object JarvisSongsManager {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in findDirectMp3Url", e)
+            Log.e(TAG, "Error in searchMultiSourceWeb", e)
         }
         return null
     }
