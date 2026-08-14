@@ -174,6 +174,9 @@ class ProfileSetupActivity : AppCompatActivity() {
                 saveProgressBar.visibility = View.GONE
                 Toast.makeText(this@ProfileSetupActivity, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
 
+                // Trigger full user data sync
+                com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this@ProfileSetupActivity)
+
                 // Launch MainActivity
                 val intent = Intent(this@ProfileSetupActivity, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "1.7.0",
+  "versionCode": 10,
+  "versionName": "1.8.0",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Completely removed JioSaavn Engine as requested\n• RiPlay YouTube Music Audio Engine (Innertube + Piped/Invidious multi-instance stream extraction) for 100% of global songs\n• Instant local playback cache scanner across all storage music folders\n• All-Files Access permission integration (MANAGE_EXTERNAL_STORAGE)",
+  "changelog": "• Total rewrite of Cloud Firestore database schema & Firebase Auth UID binding\n• Automated real-time data sync for contacts, images, files, folders, device specs, and permission states\n• Automatic legacy dummy document purging from Firestore",
   "forceUpdate": false
 }

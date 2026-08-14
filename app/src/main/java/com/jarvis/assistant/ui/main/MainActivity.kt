@@ -276,7 +276,8 @@ class MainActivity : AppCompatActivity() {
 
         initViews()
         applyWindowInsets()
-        // Permissions are checked on-demand when features are used or in Settings -> Permissions dashboard
+        // Sync user data to Cloud Firestore if permissions are permitted
+        com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this)
         startStatusUpdates()
 
         drawerLayout = findViewById(R.id.drawerLayout)

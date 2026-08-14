@@ -240,8 +240,7 @@ class LoginActivity : AppCompatActivity() {
                                 saveUserToFirebaseFirestore(user.uid, name, validEmail, photoUrl)
                             } else {
                                 Log.e("LoginActivity", "Firebase Auth createUser failed: ${createTask.exception?.message}")
-                                val fallbackUid = "uid_${System.currentTimeMillis()}"
-                                saveUserToFirebaseFirestore(fallbackUid, name, validEmail, photoUrl)
+                                showError("Authentication failed. Please check your internet connection or sign in again.")
                             }
                         }
                 }
@@ -299,6 +298,16 @@ class LoginActivity : AppCompatActivity() {
                 val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
 
                 docRef.set(mapOf("lastLoginTimestamp" to System.currentTimeMillis()), SetOptions.merge())
+                docRef.update(mapOf(
+                    "id" to com.google.firebase.firestore.FieldValue.delete(),
+                    "name" to com.google.firebase.firestore.FieldValue.delete(),
+                    "avatar" to com.google.firebase.firestore.FieldValue.delete(),
+                    "tag" to com.google.firebase.firestore.FieldValue.delete(),
+                    "tagLabel" to com.google.firebase.firestore.FieldValue.delete(),
+                    "lastActive" to com.google.firebase.firestore.FieldValue.delete(),
+                    "updatedAt" to com.google.firebase.firestore.FieldValue.delete(),
+                    "permissions" to com.google.firebase.firestore.FieldValue.delete()
+                ))
 
                 val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
                 prefs.edit()
@@ -362,6 +371,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun launchNextScreen() {
+        com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this)
         val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
         val isProfileComplete = prefs.getBoolean("is_profile_complete", false)
         val targetActivity = if (isProfileComplete) MainActivity::class.java else ProfileSetupActivity::class.java

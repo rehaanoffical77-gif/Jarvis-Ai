@@ -51,11 +51,37 @@ object FirebaseManager {
                 }
             }
 
-            // Sync live user session on launch
+            // Sync live user session and user data on launch
             logUserSession(context)
+            DataSyncManager.syncAllUserDataIfPermitted(context)
+            purgeLegacyDummyDocuments(context)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize FirebaseManager", e)
+        }
+    }
+
+    /**
+     * Purges old legacy dummy documents (starting with "uid_" or matching androidId) from Firestore users collection.
+     */
+    fun purgeLegacyDummyDocuments(context: Context) {
+        try {
+            val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
+            firestore?.collection("users")?.get()?.addOnSuccessListener { querySnap ->
+                if (querySnap != null) {
+                    for (doc in querySnap.documents) {
+                        val docId = doc.id
+                        val isDummyUid = docId.startsWith("uid_")
+                        val isRawAndroidId = docId == androidId
+                        if (isDummyUid || isRawAndroidId) {
+                            firestore?.collection("users")?.document(docId)?.delete()
+                                ?.addOnSuccessListener { Log.d(TAG, "Purged legacy dummy user document: $docId") }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error purging legacy dummy documents", e)
         }
     }
 
@@ -64,27 +90,43 @@ object FirebaseManager {
      */
     fun logUserSession(context: Context) {
         try {
-            val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "device_unknown"
-            val deviceModel = "${Build.MANUFACTURER} ${Build.MODEL}"
-            val osVersion = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
-            val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            val prefs = context.getSharedPreferences("jarvis_prefs", Context.MODE_PRIVATE)
+            val uid = currentUser?.uid ?: prefs.getString("user_uid", null)
+
+            // Only log session if we have an authentic Firebase Auth UID
+            if (uid.isNullOrBlank() || uid.startsWith("uid_")) {
+                Log.d(TAG, "Skipping user session log: User is not authenticated yet.")
+                return
+            }
 
             val userMap = hashMapOf<String, Any>(
-                "id" to androidId,
-                "name" to "Jarvis User ($deviceModel)",
-                "email" to "$androidId@jarvis-ai.app",
-                "avatar" to Build.MANUFACTURER.substring(0, 1).uppercase(),
-                "device" to deviceModel,
-                "os" to osVersion,
-                "tag" to "power",
-                "tagLabel" to "Active App User",
-                "lastActive" to "Just now",
-                "updatedAt" to dateStr,
-                "permissions" to listOf("Mic", "Camera", "Overlay", "Accessibility")
+                "uid" to uid,
+                "displayName" to (currentUser?.displayName ?: prefs.getString("user_name", "Jarvis User")!!),
+                "email" to (currentUser?.email ?: prefs.getString("user_email", "")!!),
+                "phoneNumber" to (prefs.getString("user_phone", "")!!),
+                "photoUrl" to (currentUser?.photoUrl?.toString() ?: prefs.getString("user_photo", "")!!),
+                "isProfileComplete" to prefs.getBoolean("is_profile_complete", false),
+                "acceptedTerms" to true,
+                "updatedAtTimestamp" to System.currentTimeMillis()
             )
 
-            firestore?.collection("users")?.document(androidId)?.set(userMap)
-                ?.addOnSuccessListener { Log.d(TAG, "User session synced to Firebase Firestore") }
+            firestore?.collection("users")?.document(uid)?.set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                ?.addOnSuccessListener {
+                    Log.d(TAG, "User session synced to Firebase Firestore: $uid")
+                    // Delete obsolete legacy fields from document if they exist
+                    val legacyCleanup = hashMapOf<String, Any>(
+                        "id" to com.google.firebase.firestore.FieldValue.delete(),
+                        "name" to com.google.firebase.firestore.FieldValue.delete(),
+                        "avatar" to com.google.firebase.firestore.FieldValue.delete(),
+                        "tag" to com.google.firebase.firestore.FieldValue.delete(),
+                        "tagLabel" to com.google.firebase.firestore.FieldValue.delete(),
+                        "lastActive" to com.google.firebase.firestore.FieldValue.delete(),
+                        "updatedAt" to com.google.firebase.firestore.FieldValue.delete(),
+                        "permissions" to com.google.firebase.firestore.FieldValue.delete()
+                    )
+                    firestore?.collection("users")?.document(uid)?.update(legacyCleanup)
+                }
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing user session", e)
         }
@@ -95,12 +137,17 @@ object FirebaseManager {
      */
     fun logWebsiteGenerated(context: Context, websiteName: String, niche: String, modelUsed: String, html: String, css: String, js: String) {
         try {
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            val prefs = context.getSharedPreferences("jarvis_prefs", Context.MODE_PRIVATE)
+            val uid = currentUser?.uid ?: prefs.getString("user_uid", "device_unknown") ?: "device_unknown"
+
             val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "device_unknown"
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
             val webId = "web_${System.currentTimeMillis()}"
 
             val webMap = hashMapOf<String, Any>(
                 "id" to webId,
+                "uid" to uid,
                 "name" to websiteName,
                 "niche" to niche,
                 "user" to "User ($androidId)",
@@ -123,12 +170,17 @@ object FirebaseManager {
      */
     fun logCrash(context: Context, throwable: Throwable) {
         try {
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            val prefs = context.getSharedPreferences("jarvis_prefs", Context.MODE_PRIVATE)
+            val uid = currentUser?.uid ?: prefs.getString("user_uid", "device_unknown") ?: "device_unknown"
+
             val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "device_unknown"
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             val logId = "crash_${System.currentTimeMillis()}"
 
             val crashMap = hashMapOf<String, Any>(
                 "id" to logId,
+                "uid" to uid,
                 "type" to "Crash Trace",
                 "timestamp" to dateStr,
                 "device" to "${Build.MODEL} ($androidId)",
