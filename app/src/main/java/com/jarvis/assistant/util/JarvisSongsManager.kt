@@ -17,8 +17,8 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
 /**
- * Manages the "Jarvis Songs" storage folder, ultra-fast JioSaavn & multi-source audio downloading,
- * and local playlist indexing for Next / Previous track playback.
+ * Manages storage access across all device music folders, local song caching,
+ * and multi-engine streaming/downloading (JioSaavn + RiPlay YouTube Music + Web Scraper).
  */
 object JarvisSongsManager {
 
@@ -56,20 +56,44 @@ object JarvisSongsManager {
         return folder
     }
 
-    /** Scans the "Jarvis Songs" folder and returns all available MP3 files. */
+    /**
+     * Scans ALL storage directories (Music/Jarvis Songs, Downloads/Jarvis Songs, Music, Downloads, Audio)
+     * for all available local music files.
+     */
     fun getPlaylistTracks(): List<SongFile> {
-        val folder = getJarvisSongsFolder()
-        val files = folder.listFiles { _, name ->
-            val l = name.lowercase()
-            l.endsWith(".mp3") || l.endsWith(".mp4") || l.endsWith(".m4a")
-        } ?: emptyArray()
-        return files.sortedBy { it.name.lowercase() }.map { file ->
-            val cleanTitle = file.nameWithoutExtension.replace("_", " ").trim()
-            SongFile(cleanTitle, file)
+        val searchFolders = listOf(
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "Jarvis Songs"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Jarvis Songs"),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PODCASTS),
+            File(Environment.getExternalStorageDirectory(), "Jarvis Songs")
+        )
+
+        val result = mutableListOf<SongFile>()
+        val seenPaths = mutableSetOf<String>()
+
+        for (folder in searchFolders) {
+            if (folder.exists() && folder.isDirectory) {
+                val files = folder.listFiles { _, name ->
+                    val l = name.lowercase()
+                    l.endsWith(".mp3") || l.endsWith(".m4a") || l.endsWith(".mp4") || l.endsWith(".wav") || l.endsWith(".aac") || l.endsWith(".opus")
+                } ?: emptyArray()
+
+                for (f in files) {
+                    if (seenPaths.add(f.absolutePath)) {
+                        val cleanTitle = f.nameWithoutExtension.replace("_", " ").trim()
+                        result.add(SongFile(cleanTitle, f))
+                    }
+                }
+            }
         }
+        return result.sortedBy { it.title.lowercase() }
     }
 
-    /** Checks if a song matching [query] already exists in "Jarvis Songs". */
+    /**
+     * Checks if a song matching [query] already exists in ANY local folder on the device.
+     */
     fun findLocalSong(query: String): File? {
         if (query.isBlank()) return null
         val cleanQuery = query.lowercase().trim().replace(Regex("[^a-z0-9]"), "")
@@ -85,10 +109,11 @@ object JarvisSongsManager {
     }
 
     /**
-     * Flash Fast Download & Retrieval:
-     * 1. If song exists locally in "Jarvis Songs", returns immediately.
-     * 2. If not, searches JioSaavn global audio API and downloads direct MP3 stream.
-     * 3. Fallback: Multi-source web search scraper.
+     * Multi-Engine Music Retrieval & Download:
+     * 1. Checks ALL local storage folders on phone. If found locally, plays INSTANTLY without downloading.
+     * 2. Engine 1: JioSaavn Global Audio Engine (320kbps/160kbps MP3s).
+     * 3. Engine 2: RiPlay YouTube Music Piped Stream Engine.
+     * 4. Engine 3: Web multi-source audio scraper.
      */
     suspend fun getOrDownloadSong(context: Context, songQuery: String): PlayResult = withContext(Dispatchers.IO) {
         if (songQuery.isBlank()) {
@@ -98,28 +123,29 @@ object JarvisSongsManager {
         val cleanTitle = songQuery.trim()
         val localMatch = findLocalSong(cleanTitle)
 
+        // 1. Local Cache Instant Playback
         if (localMatch != null && localMatch.exists() && localMatch.length() > 0) {
-            Log.d(TAG, "Instant play from Jarvis Songs local cache: ${localMatch.absolutePath}")
+            Log.d(TAG, "Instant play from local storage cache: ${localMatch.absolutePath}")
             return@withContext PlayResult(
                 success = true,
                 songFile = localMatch,
                 title = localMatch.nameWithoutExtension.replace("_", " "),
                 isCached = true,
-                message = "Playing from Jarvis Songs folder."
+                message = "Playing local song from phone storage."
             )
         }
 
-        // Fast flash download to "Jarvis Songs" folder
+        // 2. Multi-Engine Download to "Jarvis Songs" folder
         try {
             val fileName = sanitizeFileName(cleanTitle) + ".mp3"
             val targetFolder = getJarvisSongsFolder()
             val targetFile = File(targetFolder, fileName)
 
-            Log.d(TAG, "Searching global audio engine for: $cleanTitle")
+            Log.d(TAG, "Searching multi-engine audio streams for: $cleanTitle")
             val downloadUrl = findDirectMp3Url(cleanTitle)
 
             if (!downloadUrl.isNullOrBlank()) {
-                Log.d(TAG, "Flash downloading audio from $downloadUrl to ${targetFile.absolutePath}")
+                Log.d(TAG, "Downloading audio stream from $downloadUrl to ${targetFile.absolutePath}")
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "⚡ Flash downloading $cleanTitle to Jarvis Songs...", Toast.LENGTH_SHORT).show()
@@ -138,10 +164,10 @@ object JarvisSongsManager {
                 }
             }
 
-            Log.w(TAG, "Could not find direct MP3 link for: $cleanTitle")
+            Log.w(TAG, "Could not find audio stream link for: $cleanTitle")
             return@withContext PlayResult(
                 success = false,
-                message = "Sorry sir, I couldn't find a direct audio link for $cleanTitle."
+                message = "Sorry sir, I couldn't find an audio link for $cleanTitle."
             )
         } catch (e: Exception) {
             Log.e(TAG, "Flash download error for $cleanTitle", e)
@@ -176,14 +202,21 @@ object JarvisSongsManager {
     }
 
     private fun findDirectMp3Url(songQuery: String): String? {
-        // 1. Primary Engine: JioSaavn Global High Quality Audio API (Hindi, English, Punjabi, Pop, Regional, EDM)
+        // Engine 1: JioSaavn Global Audio Engine (Hindi, English, Punjabi, Haryanvi, Pop, EDM, Lo-Fi)
         val saavnAudioUrl = searchJioSaavnApi(songQuery)
         if (!saavnAudioUrl.isNullOrBlank()) {
             Log.d(TAG, "Found high quality audio link via JioSaavn Engine: $saavnAudioUrl")
             return saavnAudioUrl
         }
 
-        // 2. Fallback Engine: Multi-source web search scraper
+        // Engine 2: RiPlay YouTube Music Piped Stream Engine
+        val riplayAudioUrl = searchYouTubePipedApi(songQuery)
+        if (!riplayAudioUrl.isNullOrBlank()) {
+            Log.d(TAG, "Found audio stream link via RiPlay YouTube Engine: $riplayAudioUrl")
+            return riplayAudioUrl
+        }
+
+        // Engine 3: Multi-source web search scraper
         return searchMultiSourceWeb(songQuery)
     }
 
@@ -241,6 +274,60 @@ object JarvisSongsManager {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in searchJioSaavnApi for '$songQuery': ${e.message}")
+        }
+        return null
+    }
+
+    private fun searchYouTubePipedApi(songQuery: String): String? {
+        try {
+            val encodedQuery = URLEncoder.encode(songQuery, "UTF-8")
+            val instances = listOf("https://pipedapi.kavin.rocks", "https://api.piped.video")
+
+            for (instance in instances) {
+                try {
+                    val searchApiUrl = "$instance/search?q=$encodedQuery&filter=music_songs"
+                    val req = Request.Builder().url(searchApiUrl).header("User-Agent", USER_AGENT).build()
+                    val resp = httpClient.newCall(req).execute()
+                    val jsonStr = resp.body?.string() ?: ""
+
+                    if (jsonStr.isNotBlank() && jsonStr.startsWith("{")) {
+                        val rootObj = JSONObject(jsonStr)
+                        if (rootObj.has("items")) {
+                            val items = rootObj.getJSONArray("items")
+                            if (items.length() > 0) {
+                                val firstItem = items.getJSONObject(0)
+                                val urlPath = firstItem.optString("url", "")
+                                val videoId = urlPath.replace("/watch?v=", "")
+
+                                if (videoId.isNotBlank()) {
+                                    val streamApiUrl = "$instance/streams/$videoId"
+                                    val streamReq = Request.Builder().url(streamApiUrl).header("User-Agent", USER_AGENT).build()
+                                    val streamResp = httpClient.newCall(streamReq).execute()
+                                    val streamJson = streamResp.body?.string() ?: ""
+
+                                    if (streamJson.isNotBlank() && streamJson.startsWith("{")) {
+                                        val streamObj = JSONObject(streamJson)
+                                        if (streamObj.has("audioStreams")) {
+                                            val audioStreams = streamObj.getJSONArray("audioStreams")
+                                            if (audioStreams.length() > 0) {
+                                                val bestAudio = audioStreams.getJSONObject(0)
+                                                val audioUrl = bestAudio.optString("url", "")
+                                                if (audioUrl.isNotBlank() && audioUrl.startsWith("http")) {
+                                                    return audioUrl
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Piped instance $instance failed for $songQuery", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in searchYouTubePipedApi for '$songQuery'", e)
         }
         return null
     }

@@ -297,9 +297,34 @@ class MainActivity : AppCompatActivity() {
         )
 
         startAndBindVoiceService()
+        checkStoragePermissionOnLaunch()
 
         // Check for crash log from previous session
         checkAndDisplayCrashLog()
+    }
+
+    private fun checkStoragePermissionOnLaunch() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (!android.os.Environment.isExternalStorageManager()) {
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = android.net.Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+            } else {
+                val permsToRequest = mutableListOf<String>()
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    permsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    permsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                }
+                if (permsToRequest.isNotEmpty()) {
+                    ActivityCompat.requestPermissions(this, permsToRequest.toTypedArray(), 301)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     fun applyBrightness(percentage: Int) {

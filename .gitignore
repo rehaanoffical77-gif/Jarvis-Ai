@@ -43,3 +43,7 @@ Thumbs.db
 
 # Private Local Admin Panel (Do not push to GitHub)
 admin-panel/
+
+# Scratch and extracted archives (Do not push to GitHub)
+scratch/
+*.zip
