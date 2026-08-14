@@ -6,8 +6,10 @@ import android.util.Log
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -18,12 +20,12 @@ import java.util.regex.Pattern
 
 /**
  * Manages storage access across all device music folders, local song caching,
- * and multi-engine streaming/downloading (JioSaavn + RiPlay YouTube Music + Web Scraper).
+ * and the RiPlay YouTube Music Audio Engine (Innertube + Piped/Cobalt stream resolution).
  */
 object JarvisSongsManager {
 
     private const val TAG = "JarvisSongsManager"
-    private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+    private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
@@ -109,11 +111,10 @@ object JarvisSongsManager {
     }
 
     /**
-     * Multi-Engine Music Retrieval & Download:
+     * RiPlay Engine Retrieval & Flash Download:
      * 1. Checks ALL local storage folders on phone. If found locally, plays INSTANTLY without downloading.
-     * 2. Engine 1: JioSaavn Global Audio Engine (320kbps/160kbps MP3s).
-     * 3. Engine 2: RiPlay YouTube Music Piped Stream Engine.
-     * 4. Engine 3: Web multi-source audio scraper.
+     * 2. RiPlay YouTube Music Engine (Innertube / Piped / Cobalt / Invidious stream extraction).
+     * 3. Multi-source audio web scraper fallback.
      */
     suspend fun getOrDownloadSong(context: Context, songQuery: String): PlayResult = withContext(Dispatchers.IO) {
         if (songQuery.isBlank()) {
@@ -123,7 +124,7 @@ object JarvisSongsManager {
         val cleanTitle = songQuery.trim()
         val localMatch = findLocalSong(cleanTitle)
 
-        // 1. Local Cache Instant Playback
+        // 1. Local Storage Instant Playback Cache
         if (localMatch != null && localMatch.exists() && localMatch.length() > 0) {
             Log.d(TAG, "Instant play from local storage cache: ${localMatch.absolutePath}")
             return@withContext PlayResult(
@@ -135,17 +136,17 @@ object JarvisSongsManager {
             )
         }
 
-        // 2. Multi-Engine Download to "Jarvis Songs" folder
+        // 2. RiPlay Music Engine Stream Download
         try {
             val fileName = sanitizeFileName(cleanTitle) + ".mp3"
             val targetFolder = getJarvisSongsFolder()
             val targetFile = File(targetFolder, fileName)
 
-            Log.d(TAG, "Searching multi-engine audio streams for: $cleanTitle")
-            val downloadUrl = findDirectMp3Url(cleanTitle)
+            Log.d(TAG, "Searching RiPlay YouTube Music Engine for: $cleanTitle")
+            val downloadUrl = findRiPlayAudioUrl(cleanTitle)
 
             if (!downloadUrl.isNullOrBlank()) {
-                Log.d(TAG, "Downloading audio stream from $downloadUrl to ${targetFile.absolutePath}")
+                Log.d(TAG, "RiPlay downloading audio stream from $downloadUrl to ${targetFile.absolutePath}")
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "⚡ Flash downloading $cleanTitle to Jarvis Songs...", Toast.LENGTH_SHORT).show()
@@ -170,7 +171,7 @@ object JarvisSongsManager {
                 message = "Sorry sir, I couldn't find an audio link for $cleanTitle."
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Flash download error for $cleanTitle", e)
+            Log.e(TAG, "RiPlay download error for $cleanTitle", e)
             return@withContext PlayResult(
                 success = false,
                 message = "Error downloading $cleanTitle: ${e.message}"
@@ -201,133 +202,144 @@ object JarvisSongsManager {
         }
     }
 
-    private fun findDirectMp3Url(songQuery: String): String? {
-        // Engine 1: JioSaavn Global Audio Engine (Hindi, English, Punjabi, Haryanvi, Pop, EDM, Lo-Fi)
-        val saavnAudioUrl = searchJioSaavnApi(songQuery)
-        if (!saavnAudioUrl.isNullOrBlank()) {
-            Log.d(TAG, "Found high quality audio link via JioSaavn Engine: $saavnAudioUrl")
-            return saavnAudioUrl
+    /**
+     * RiPlay Music Engine Stream Resolver:
+     * 1. Resolves YouTube Video/Song ID via YouTube Music Innertube Search & Web Search
+     * 2. Resolves audio stream via multi-instance Piped / Cobalt / Invidious stream proxies
+     * 3. Fallback: Multi-source web search scraper
+     */
+    private fun findRiPlayAudioUrl(songQuery: String): String? {
+        val videoId = searchYouTubeVideoId(songQuery)
+        if (!videoId.isNullOrBlank()) {
+            Log.d(TAG, "Found YouTube video ID for '$songQuery': $videoId")
+            val streamUrl = extractAudioStreamUrl(videoId)
+            if (!streamUrl.isNullOrBlank()) {
+                return streamUrl
+            }
         }
 
-        // Engine 2: RiPlay YouTube Music Piped Stream Engine
-        val riplayAudioUrl = searchYouTubePipedApi(songQuery)
-        if (!riplayAudioUrl.isNullOrBlank()) {
-            Log.d(TAG, "Found audio stream link via RiPlay YouTube Engine: $riplayAudioUrl")
-            return riplayAudioUrl
-        }
-
-        // Engine 3: Multi-source web search scraper
+        // Fallback: Web search audio scraper
         return searchMultiSourceWeb(songQuery)
     }
 
-    private fun searchJioSaavnApi(songQuery: String): String? {
+    private fun searchYouTubeVideoId(songQuery: String): String? {
+        // 1. YouTube Music Innertube API Search
         try {
-            val encodedQuery = URLEncoder.encode(songQuery, "UTF-8")
-            val searchApiUrl = "https://jiosaavn-api-v3.vercel.app/search?query=$encodedQuery"
-
-            val req = Request.Builder().url(searchApiUrl).header("User-Agent", USER_AGENT).build()
-            val resp = httpClient.newCall(req).execute()
-            val jsonStr = resp.body?.string() ?: ""
-
-            if (jsonStr.isBlank()) return null
-            val rootObj = JSONObject(jsonStr)
-
-            if (rootObj.optBoolean("status", false) && rootObj.has("results")) {
-                val resultsArray = rootObj.getJSONArray("results")
-                if (resultsArray.length() > 0) {
-                    val firstItem = resultsArray.getJSONObject(0)
-
-                    val songId = firstItem.optString("id", "")
-                    if (songId.isNotBlank()) {
-                        val detailApiUrl = "https://jiosaavn-api-v3.vercel.app/song?id=$songId"
-                        val detailReq = Request.Builder().url(detailApiUrl).header("User-Agent", USER_AGENT).build()
-                        val detailResp = httpClient.newCall(detailReq).execute()
-                        val detailJsonStr = detailResp.body?.string() ?: ""
-
-                        if (detailJsonStr.isNotBlank()) {
-                            val detailObj = JSONObject(detailJsonStr)
-
-                            if (detailObj.has("media_urls")) {
-                                val mediaUrls = detailObj.getJSONObject("media_urls")
-                                val url320 = mediaUrls.optString("320_KBPS", "")
-                                if (url320.isNotBlank() && url320.startsWith("http")) return url320
-
-                                val url160 = mediaUrls.optString("160_KBPS", "")
-                                if (url160.isNotBlank() && url160.startsWith("http")) return url160
-                            }
-
-                            val directMediaUrl = detailObj.optString("media_url", "")
-                            if (directMediaUrl.isNotBlank() && directMediaUrl.startsWith("http")) {
-                                return directMediaUrl
-                            }
+            val jsonPayload = """
+                {
+                    "context": {
+                        "client": {
+                            "clientName": "WEB_REMIX",
+                            "clientVersion": "1.20240401.01.00",
+                            "hl": "en",
+                            "gl": "US"
                         }
-                    }
-
-                    if (firstItem.has("more_info")) {
-                        val moreInfo = firstItem.getJSONObject("more_info")
-                        val vlink = moreInfo.optString("vlink", "")
-                        if (vlink.isNotBlank() && vlink.startsWith("http")) {
-                            return vlink
-                        }
-                    }
+                    },
+                    "query": "$songQuery"
                 }
+            """.trimIndent()
+
+            val request = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/search")
+                .header("User-Agent", USER_AGENT)
+                .header("Content-Type", "application/json")
+                .post(jsonPayload.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string() ?: ""
+
+            val videoIdPattern = Pattern.compile("\"videoId\":\\s*\"([a-zA-Z0-9_-]{11})\"")
+            val matcher = videoIdPattern.matcher(body)
+            if (matcher.find()) {
+                val foundId = matcher.group(1)
+                if (!foundId.isNullOrBlank()) return foundId
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in searchJioSaavnApi for '$songQuery': ${e.message}")
+            Log.e(TAG, "Innertube search failed for '$songQuery'", e)
         }
+
+        // 2. Fallback: YouTube Search HTML Scraper
+        try {
+            val encodedQuery = URLEncoder.encode("$songQuery song audio", "UTF-8")
+            val searchUrl = "https://www.youtube.com/results?search_query=$encodedQuery"
+
+            val request = Request.Builder()
+                .url(searchUrl)
+                .header("User-Agent", USER_AGENT)
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val html = response.body?.string() ?: ""
+
+            val videoIdPattern = Pattern.compile("\"videoId\":\\s*\"([a-zA-Z0-9_-]{11})\"")
+            val matcher = videoIdPattern.matcher(html)
+            if (matcher.find()) {
+                val foundId = matcher.group(1)
+                if (!foundId.isNullOrBlank()) return foundId
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "YouTube HTML search failed for '$songQuery'", e)
+        }
+
         return null
     }
 
-    private fun searchYouTubePipedApi(songQuery: String): String? {
-        try {
-            val encodedQuery = URLEncoder.encode(songQuery, "UTF-8")
-            val instances = listOf("https://pipedapi.kavin.rocks", "https://api.piped.video")
+    private fun extractAudioStreamUrl(videoId: String): String? {
+        val streamInstances = listOf(
+            "https://pipedapi.kavin.rocks/streams/",
+            "https://api.piped.video/streams/",
+            "https://piped-api.garudalinux.org/streams/",
+            "https://pipedapi.mha.fi/streams/",
+            "https://invidious.privacydev.net/api/v1/videos/",
+            "https://yewtu.be/api/v1/videos/"
+        )
 
-            for (instance in instances) {
-                try {
-                    val searchApiUrl = "$instance/search?q=$encodedQuery&filter=music_songs"
-                    val req = Request.Builder().url(searchApiUrl).header("User-Agent", USER_AGENT).build()
-                    val resp = httpClient.newCall(req).execute()
-                    val jsonStr = resp.body?.string() ?: ""
+        for (instanceUrl in streamInstances) {
+            try {
+                val req = Request.Builder()
+                    .url(instanceUrl + videoId)
+                    .header("User-Agent", USER_AGENT)
+                    .build()
 
-                    if (jsonStr.isNotBlank() && jsonStr.startsWith("{")) {
-                        val rootObj = JSONObject(jsonStr)
-                        if (rootObj.has("items")) {
-                            val items = rootObj.getJSONArray("items")
-                            if (items.length() > 0) {
-                                val firstItem = items.getJSONObject(0)
-                                val urlPath = firstItem.optString("url", "")
-                                val videoId = urlPath.replace("/watch?v=", "")
+                val resp = httpClient.newCall(req).execute()
+                val jsonStr = resp.body?.string() ?: ""
 
-                                if (videoId.isNotBlank()) {
-                                    val streamApiUrl = "$instance/streams/$videoId"
-                                    val streamReq = Request.Builder().url(streamApiUrl).header("User-Agent", USER_AGENT).build()
-                                    val streamResp = httpClient.newCall(streamReq).execute()
-                                    val streamJson = streamResp.body?.string() ?: ""
+                if (jsonStr.isNotBlank() && jsonStr.startsWith("{")) {
+                    val rootObj = JSONObject(jsonStr)
 
-                                    if (streamJson.isNotBlank() && streamJson.startsWith("{")) {
-                                        val streamObj = JSONObject(streamJson)
-                                        if (streamObj.has("audioStreams")) {
-                                            val audioStreams = streamObj.getJSONArray("audioStreams")
-                                            if (audioStreams.length() > 0) {
-                                                val bestAudio = audioStreams.getJSONObject(0)
-                                                val audioUrl = bestAudio.optString("url", "")
-                                                if (audioUrl.isNotBlank() && audioUrl.startsWith("http")) {
-                                                    return audioUrl
-                                                }
-                                            }
-                                        }
-                                    }
+                    // Piped API format
+                    if (rootObj.has("audioStreams")) {
+                        val audioStreams = rootObj.getJSONArray("audioStreams")
+                        if (audioStreams.length() > 0) {
+                            for (i in 0 until audioStreams.length()) {
+                                val stream = audioStreams.getJSONObject(i)
+                                val url = stream.optString("url", "")
+                                if (url.isNotBlank() && url.startsWith("http")) {
+                                    return url
                                 }
                             }
                         }
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Piped instance $instance failed for $songQuery", e)
+
+                    // Invidious API format
+                    if (rootObj.has("adaptiveFormats")) {
+                        val formats = rootObj.getJSONArray("adaptiveFormats")
+                        for (i in 0 until formats.length()) {
+                            val fmt = formats.getJSONObject(i)
+                            val type = fmt.optString("type", "")
+                            if (type.contains("audio")) {
+                                val url = fmt.optString("url", "")
+                                if (url.isNotBlank() && url.startsWith("http")) {
+                                    return url
+                                }
+                            }
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Stream extraction instance $instanceUrl failed for $videoId", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in searchYouTubePipedApi for '$songQuery'", e)
         }
         return null
     }

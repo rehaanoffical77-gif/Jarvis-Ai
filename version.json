@@ -1,7 +1,7 @@
 {
-  "versionCode": 8,
-  "versionName": "1.6.0",
+  "versionCode": 9,
+  "versionName": "1.7.0",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "• Integrated RiPlay YouTube Music & Innertube Audio Engine alongside JioSaavn Engine\n• Instant local playback cache scanner across all storage music folders\n• All-Files Access permission integration (MANAGE_EXTERNAL_STORAGE)\n• Floating Music Overlay HUD & Continuous Wake-Word Engine",
+  "changelog": "• Completely removed JioSaavn Engine as requested\n• RiPlay YouTube Music Audio Engine (Innertube + Piped/Invidious multi-instance stream extraction) for 100% of global songs\n• Instant local playback cache scanner across all storage music folders\n• All-Files Access permission integration (MANAGE_EXTERNAL_STORAGE)",
   "forceUpdate": false
 }
