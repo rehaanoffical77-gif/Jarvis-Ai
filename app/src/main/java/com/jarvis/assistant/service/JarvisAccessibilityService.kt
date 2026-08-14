@@ -154,7 +154,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         }
 
         // 1. Try finding Install / Update / Get buttons on active screen that are NOT inside sponsored ads or search inputs
-        val keywords = listOf("install", "update", "get")
+        val keywords = listOf("install", "update", "get", "download", "इन्स्टॉल", "instalar", "installer")
         val exclude = listOf("installed", "installing", "uninstall", "cancel", "search", "query")
         val candidates = mutableListOf<AccessibilityNodeInfo>()
 
@@ -181,7 +181,18 @@ class JarvisAccessibilityService : AccessibilityService() {
             if (!isInputFieldOrSearchBar(candidate) && tapNodeOrParent(candidate)) return true
         }
 
-        // 2. If appName is specified and we are on Play Store search list, find non-sponsored card matching appName and tap it to open detail page
+        // 2. Try finding nodes by Play Store resource ID ("right_button", "install_button", "buy_button", "action_button")
+        val idNeedles = listOf("install_button", "right_button", "buy_button", "action_button")
+        val idCandidates = mutableListOf<AccessibilityNodeInfo>()
+        for (needle in idNeedles) {
+            collectByResourceId(root, needle, idCandidates)
+        }
+
+        for (candidate in idCandidates) {
+            if (!isSponsoredContainer(candidate) && tapNodeOrParent(candidate)) return true
+        }
+
+        // 3. If appName is specified and we are on Play Store search list, find non-sponsored card matching appName and tap it
         if (appName.isNotBlank()) {
             val appTitleCandidates = mutableListOf<AccessibilityNodeInfo>()
             fun scanAppTitles(node: AccessibilityNodeInfo) {
@@ -203,17 +214,6 @@ class JarvisAccessibilityService : AccessibilityService() {
             }
         }
 
-        // 3. Try finding nodes by Play Store resource ID ("right_button", "install_button", "buy_button") excluding sponsored
-        val idNeedles = listOf("install_button", "right_button", "buy_button")
-        val idCandidates = mutableListOf<AccessibilityNodeInfo>()
-        for (needle in idNeedles) {
-            collectByResourceId(root, needle, idCandidates)
-        }
-
-        for (candidate in idCandidates) {
-            if (!isSponsoredContainer(candidate) && tapNodeOrParent(candidate)) return true
-        }
-
         return false
     }
 
@@ -221,9 +221,15 @@ class JarvisAccessibilityService : AccessibilityService() {
         var current: AccessibilityNodeInfo? = node
         while (current != null) {
             if (current.isClickable) {
-                return current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                val ok = current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (ok) return true
             }
             current = current.parent
+        }
+        val bounds = android.graphics.Rect()
+        node.getBoundsInScreen(bounds)
+        if (bounds.width() > 0 && bounds.height() > 0) {
+            return tapAtAbsoluteCoordinates(bounds.centerX().toFloat(), bounds.centerY().toFloat())
         }
         return false
     }
@@ -338,6 +344,17 @@ class JarvisAccessibilityService : AccessibilityService() {
         val stroke = GestureDescription.StrokeDescription(path, 0, 50)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         return dispatchGesture(gesture, null, null)
+    }
+
+    /** Tap at absolute screen pixel coordinates (x, y). */
+    fun tapAtAbsoluteCoordinates(x: Float, y: Float): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            val path = Path().apply { moveTo(x, y) }
+            val stroke = GestureDescription.StrokeDescription(path, 0, 50)
+            val gesture = GestureDescription.Builder().addStroke(stroke).build()
+            return dispatchGesture(gesture, null, null)
+        }
+        return false
     }
 
     /** Type text into the currently focused text field on screen. */

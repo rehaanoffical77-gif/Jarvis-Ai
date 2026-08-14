@@ -1,48 +1,48 @@
 # ===================================================================
-# R8 / ProGuard Obfuscation & Security Rules for Jarvis AI
+# R8 / ProGuard Rules for Jarvis AI
 # ===================================================================
 
-# Aggressive package flattening & class renaming
--repackageclasses 'o'
--allowaccessmodification
--renamesourcefileattribute ""
+# Keep all Jarvis Assistant application classes, services, models, and interfaces
+-keep class com.jarvis.assistant.** { *; }
+-keepclassmembers class com.jarvis.assistant.** { *; }
+-keep interface com.jarvis.assistant.** { *; }
 
-# Strip debugging symbols & line numbers
--keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+# Keep attributes required for reflection, annotations, and generic signatures
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,Exceptions
 
-# Strip Log statements from release binaries to prevent token/state leakage
--assumenosideeffects class android.util.Log {
-    public static *** d(...);
-    public static *** v(...);
-    public static *** i(...);
-    public static *** w(...);
-}
-
-# Keep classes annotated with @Keep (e.g. data models, serialized fields)
+# Keep classes annotated with @Keep
 -keep @androidx.annotation.Keep class * { *; }
 -keepclassmembers class * {
     @androidx.annotation.Keep *;
 }
 
-# Keep Android view binding classes generated at compile time
+# Keep Android view binding & data binding classes
 -keep class com.jarvis.assistant.databinding.** { *; }
+-keepclassmembers class com.jarvis.assistant.databinding.** { *; }
 
-# OkHttp & Okio rules
+# OkHttp & Okio rules for network downloading & API calls
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -keep class okhttp3.** { *; }
+-keepclassmembers class okhttp3.** { *; }
 -keep class okio.** { *; }
+-keepclassmembers class okio.** { *; }
 
-# JSON
+# JSON parsing
 -keep class org.json.** { *; }
+-keepclassmembers class org.json.** { *; }
 
 # Kotlin Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keep class kotlinx.coroutines.** { *; }
+
+# Media & Audio
+-keep class android.media.** { *; }
+-keep class androidx.media.** { *; }
 
 # Firebase & Google Play Services
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
-
