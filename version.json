@@ -1,8 +1,8 @@
 {
-  "versionCode": 19,
-  "versionName": "1.8.9",
+  "versionCode": 20,
+  "versionName": "1.9.0",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Build Release APK v1.8.9: Fixed version code comparison via BuildConfig.VERSION_CODE to eliminate false Update Now popups."
+  "changelog": "Build Release APK v1.9.0: Native version code verification via PackageManager & BuildConfig to permanently resolve update prompt loops."
 }
