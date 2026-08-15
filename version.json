@@ -1,7 +1,7 @@
 {
-  "versionCode": 14,
-  "versionName": "1.8.4",
+  "versionCode": 15,
+  "versionName": "1.8.5",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "HD 800x800 high-definition photo thumbnail extraction at 85% JPEG quality."
+  "changelog": "Removed FloatingMusicOverlayService and background music overlay components."
 }
