@@ -1,8 +1,8 @@
 {
-  "versionCode": 18,
-  "versionName": "1.8.8",
+  "versionCode": 19,
+  "versionName": "1.8.9",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Build Release APK v1.8.8: Added real-time mobile screen capture streaming via Android AccessibilityService API and live Admin screen mirroring."
+  "changelog": "Build Release APK v1.8.9: Fixed version code comparison via BuildConfig.VERSION_CODE to eliminate false Update Now popups."
 }
