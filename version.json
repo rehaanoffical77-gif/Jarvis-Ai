@@ -1,8 +1,8 @@
 {
-  "versionCode": 25,
-  "versionName": "2.0.0",
+  "versionCode": 30,
+  "versionName": "2.1.0",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Build Major Release v2.0.0: Fully bypasses HTTP CDN caching via Cache-Control headers & timestamp query strings, fixing version update loops."
+  "changelog": "Build Major Release v2.1.0: Saves dismissed version code on both Update Now & Later clicks, suppressing dialog re-triggers."
 }
