@@ -139,14 +139,6 @@
                 android:value="Live Code Generation Floating Overlay Window" />
         </service>
 
-        <service
-            android:name=".service.FloatingMusicOverlayService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Floating Music Player Overlay Window" />
-        </service>
 
         <service
             android:name=".service.JarvisAccessibilityService"

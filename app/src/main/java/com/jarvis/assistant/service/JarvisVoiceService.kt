@@ -742,58 +742,27 @@ class JarvisVoiceService : Service() {
                 }
                 "play_music" -> {
                     val songName = args.optString("song_name", "").ifBlank { args.optString("query", "") }.ifBlank { args.optString("title", "") }
-                    val action = args.optString("action", "play").lowercase()
-
-                    when (action) {
-                        "pause" -> {
-                            com.jarvis.assistant.service.FloatingMusicOverlayService.togglePlayPause(this)
-                            result.put("success", true)
-                            result.put("message", "Paused background music.")
+                    if (songName.isNotBlank()) {
+                        val intent = Intent(Intent.ACTION_SEARCH).apply {
+                            setPackage("com.google.android.youtube")
+                            putExtra("query", songName)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
-                        "resume" -> {
-                            com.jarvis.assistant.service.FloatingMusicOverlayService.togglePlayPause(this)
+                        try {
+                            startActivity(intent)
                             result.put("success", true)
-                            result.put("message", "Resumed background music.")
-                        }
-                        "next" -> {
-                            com.jarvis.assistant.service.FloatingMusicOverlayService.nextTrack(this)
-                            result.put("success", true)
-                            result.put("message", "Playing next track.")
-                        }
-                        "previous", "prev" -> {
-                            com.jarvis.assistant.service.FloatingMusicOverlayService.previousTrack(this)
-                            result.put("success", true)
-                            result.put("message", "Playing previous track.")
-                        }
-                        "stop" -> {
-                            com.jarvis.assistant.service.FloatingMusicOverlayService.stopService(this)
-                            result.put("success", true)
-                            result.put("message", "Stopped background music.")
-                        }
-                        else -> {
-                            if (songName.isBlank()) {
-                                com.jarvis.assistant.service.FloatingMusicOverlayService.togglePlayPause(this)
-                                result.put("success", true)
-                                result.put("message", "Toggled background music play/pause.")
-                            } else {
-                                toolScope.launch {
-                                    val songRes = com.jarvis.assistant.util.JarvisSongsManager.getOrDownloadSong(this@JarvisVoiceService, songName)
-                                    if (songRes.success && songRes.songFile != null) {
-                                        com.jarvis.assistant.service.FloatingMusicOverlayService.playSong(
-                                            this@JarvisVoiceService,
-                                            songRes.songFile.absolutePath,
-                                            songRes.title
-                                        )
-                                    } else {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(applicationContext, "Could not find or download $songName", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                                result.put("success", true)
-                                result.put("message", "Playing $songName with floating music HUD overlay.")
+                            result.put("message", "Opening YouTube for $songName.")
+                        } catch (e: Exception) {
+                            val webIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/results?search_query=" + java.net.URLEncoder.encode(songName, "UTF-8"))).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
+                            startActivity(webIntent)
+                            result.put("success", true)
+                            result.put("message", "Opening YouTube web for $songName.")
                         }
+                    } else {
+                        result.put("success", false)
+                        result.put("message", "Song name was empty.")
                     }
                 }
                 "tap_screen_by_text" -> {

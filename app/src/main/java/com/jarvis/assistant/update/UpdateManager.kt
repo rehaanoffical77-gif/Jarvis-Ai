@@ -47,23 +47,47 @@ object UpdateManager {
         val forceUpdate: Boolean = false
     )
 
+    @Volatile
+    private var isDialogOpen = false
+
+    @Volatile
+    private var isUpdateInProgress = false
+
     /**
      * Checks for updates asynchronously without blocking the UI thread.
      */
-    fun checkForUpdates(activity: Activity, versionUrl: String = DEFAULT_VERSION_URL) {
+    fun checkForUpdates(activity: Activity, versionUrl: String = DEFAULT_VERSION_URL, manualCheck: Boolean = false) {
+        if (isDialogOpen || isUpdateInProgress) {
+            Log.d(TAG, "Update check skipped: dialog open = $isDialogOpen, update in progress = $isUpdateInProgress")
+            return
+        }
+
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val updateInfo = fetchRemoteVersionInfo(versionUrl) ?: return@launch
                 val currentVersionCode = getLocalVersionCode(activity)
 
+                Log.d(TAG, "Checking updates: Remote Code = ${updateInfo.versionCode}, Installed Local Code = $currentVersionCode")
+
+                // Show update dialog if remote version code is GREATER than local installed version code
                 if (updateInfo.versionCode > currentVersionCode) {
-                    withContext(Dispatchers.Main) {
-                        if (!activity.isFinishing && !activity.isDestroyed) {
-                            showUpdateDialog(activity, updateInfo)
+                    val prefs = activity.getSharedPreferences("jarvis_update_prefs", Context.MODE_PRIVATE)
+                    val dismissedVersion = prefs.getInt("dismissed_version_code", 0)
+
+                    if (manualCheck || (dismissedVersion < updateInfo.versionCode && !isUpdateInProgress) || updateInfo.forceUpdate) {
+                        withContext(Dispatchers.Main) {
+                            if (!activity.isFinishing && !activity.isDestroyed && !isDialogOpen) {
+                                showUpdateDialog(activity, updateInfo)
+                            }
                         }
                     }
                 } else {
-                    Log.d(TAG, "Jarvis AI is up to date (Code: $currentVersionCode)")
+                    Log.d(TAG, "Jarvis AI is up to date (Installed Code: $currentVersionCode, Remote Code: ${updateInfo.versionCode})")
+                    if (manualCheck) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(activity, "Jarvis AI is up to date (v${com.jarvis.assistant.BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to check for updates", e)
@@ -73,10 +97,16 @@ object UpdateManager {
 
     private fun fetchRemoteVersionInfo(url: String): UpdateInfo? {
         return try {
-            val client = OkHttpClient()
+            val cacheBusterUrl = if (url.contains("?")) "$url&t=${System.currentTimeMillis()}" else "$url?t=${System.currentTimeMillis()}"
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
             val request = Request.Builder()
-                .url(url)
+                .url(cacheBusterUrl)
                 .header("User-Agent", "Mozilla/5.0 JarvisAI-Android")
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
                 .build()
             val response = client.newCall(request).execute()
 
@@ -84,10 +114,14 @@ object UpdateManager {
             val body = response.body?.string() ?: return null
 
             val json = JSONObject(body)
+            val urlFromKey = json.optString("downloadUrl", "").ifBlank { json.optString("apkUrl", "") }
+            val baseApkUrl = if (urlFromKey.isNotBlank()) urlFromKey else "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk"
+            val finalApkUrl = if (baseApkUrl.contains("?")) "$baseApkUrl&cb=${System.currentTimeMillis()}" else "$baseApkUrl?cb=${System.currentTimeMillis()}"
+
             UpdateInfo(
                 versionCode = json.optInt("versionCode", 0),
                 versionName = json.optString("versionName", "1.0.0"),
-                apkUrl = json.optString("apkUrl", ""),
+                apkUrl = finalApkUrl,
                 changelog = json.optString("changelog", "Bug fixes and performance improvements."),
                 forceUpdate = json.optBoolean("forceUpdate", false)
             )
@@ -99,14 +133,15 @@ object UpdateManager {
 
     private fun getLocalVersionCode(context: Context): Int {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val pmCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
             } else {
                 @Suppress("DEPRECATION")
                 context.packageManager.getPackageInfo(context.packageName, 0).versionCode
             }
+            if (pmCode > 0) pmCode else com.jarvis.assistant.BuildConfig.VERSION_CODE
         } catch (e: Exception) {
-            1
+            com.jarvis.assistant.BuildConfig.VERSION_CODE
         }
     }
 
@@ -114,17 +149,52 @@ object UpdateManager {
      * Displays update dialog with release notes.
      */
     private fun showUpdateDialog(activity: Activity, updateInfo: UpdateInfo) {
+        if (isDialogOpen) return
+        isDialogOpen = true
+
         val builder = AlertDialog.Builder(activity)
             .setTitle("🚀 New Jarvis AI Update (v${updateInfo.versionName})")
             .setMessage("What's New:\n${updateInfo.changelog}\n\nWould you like to update now?")
             .setPositiveButton("Update Now") { _, _ ->
+                isDialogOpen = false
+                isUpdateInProgress = true
+                activity.getSharedPreferences("jarvis_update_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("dismissed_version_code", updateInfo.versionCode)
+                    .apply()
                 startApkDownload(activity, updateInfo)
+            }
+            .setNeutralButton("Browser Direct") { _, _ ->
+                isDialogOpen = false
+                isUpdateInProgress = true
+                activity.getSharedPreferences("jarvis_update_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("dismissed_version_code", updateInfo.versionCode)
+                    .apply()
+                try {
+                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.apkUrl)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    activity.startActivity(browserIntent)
+                } catch (e: Exception) {
+                    Toast.makeText(activity, "Error opening browser link", Toast.LENGTH_SHORT).show()
+                }
             }
 
         if (!updateInfo.forceUpdate) {
-            builder.setNegativeButton("Later", null)
+            builder.setNegativeButton("Later") { _, _ ->
+                isDialogOpen = false
+                activity.getSharedPreferences("jarvis_update_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("dismissed_version_code", updateInfo.versionCode)
+                    .apply()
+            }
         } else {
             builder.setCancelable(false)
+        }
+
+        builder.setOnDismissListener {
+            isDialogOpen = false
         }
 
         builder.show()

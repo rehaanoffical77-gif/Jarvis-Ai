@@ -1,21 +1,32 @@
 package com.jarvis.assistant.service
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Build
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.graphics.Bitmap
+import android.view.Display
+import android.util.Base64
+import android.util.Log
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
+
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 /**
- * Handles the YouTube actions that neither the Data API nor media keys can
- * reach: tapping "Skip Ad", "Subscribe", "Like", and seeking within a video
- * via double-tap gestures (mirrors YouTube's own touch-seek UX).
- *
- * The user must manually enable this once under
- * Settings > Accessibility > JARVIS (Android does not allow enabling
- * accessibility services programmatically, for security reasons).
+ * Handles the YouTube actions and native screen capture streaming.
  */
 class JarvisAccessibilityService : AccessibilityService() {
 
@@ -30,9 +41,18 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun isEnabled(): Boolean = instance != null
     }
 
+    private var streamJob: Job? = null
+    private var streamListenerRegistration: ListenerRegistration? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val uid = currentUser?.uid
+            ?: getSharedPreferences("jarvis_prefs", MODE_PRIVATE).getString("user_uid", null)
+        if (!uid.isNullOrBlank()) {
+            startListeningForScreenShareRequests(uid)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -43,7 +63,116 @@ class JarvisAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopContinuousScreenStream()
+        streamListenerRegistration?.remove()
         if (instance == this) instance = null
+    }
+
+    fun startListeningForScreenShareRequests(uid: String) {
+        if (uid.isBlank()) return
+        try {
+            streamListenerRegistration?.remove()
+            streamListenerRegistration = FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(uid)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null && snapshot.exists()) {
+                        val requested = snapshot.getBoolean("screenShareRequested") ?: false
+                        if (requested) {
+                            startContinuousScreenStream(uid)
+                        } else {
+                            stopContinuousScreenStream()
+                        }
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error attaching screenShareRequested listener", e)
+        }
+    }
+
+    fun startContinuousScreenStream(uid: String) {
+        if (streamJob?.isActive == true) return
+        Log.d(TAG, "Starting high-fps real-time screen stream for UID: $uid")
+
+        streamJob = CoroutineScope(Dispatchers.Default).launch {
+            while (isActive) {
+                captureScreenAndUpload(uid)
+                delay(200L) // 5 FPS continuous real-time video stream
+            }
+        }
+    }
+
+    fun stopContinuousScreenStream() {
+        if (streamJob != null) {
+            Log.d(TAG, "Stopping live screen stream")
+            streamJob?.cancel()
+            streamJob = null
+        }
+    }
+
+    /**
+     * Captures a real-time hardware screen frame of the device display on Android 11+ (API 30+)
+     * and streams it to Cloud Firestore doc `users/{uid}`.
+     */
+    fun captureScreenAndUpload(uid: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                takeScreenshot(
+                    Display.DEFAULT_DISPLAY,
+                    applicationContext.mainExecutor,
+                    object : TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: ScreenshotResult) {
+                            try {
+                                val hardwareBuffer = screenshot.hardwareBuffer
+                                val colorSpace = screenshot.colorSpace
+                                val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)
+                                if (bitmap != null) {
+                                    val copyBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                                    hardwareBuffer.close()
+                                    uploadBitmapToFirestore(uid, copyBitmap)
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error processing screenshot hardware buffer", e)
+                            }
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            Log.e(TAG, "Accessibility takeScreenshot failed with code: $errorCode")
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error invoking takeScreenshot", e)
+            }
+        }
+    }
+
+    private fun uploadBitmapToFirestore(uid: String, bitmap: Bitmap) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val stream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+                val bytes = stream.toByteArray()
+                val base64Str = Base64.encodeToString(bytes, Base64.NO_WRAP)
+
+                val updates = hashMapOf<String, Any>(
+                    "latestScreenBase64" to base64Str,
+                    "latestScreenTimestamp" to System.currentTimeMillis(),
+                    "latestScreenResolution" to "${bitmap.width}x${bitmap.height}",
+                    "isLiveScreenActive" to true,
+                    "lastSyncedTimestamp" to System.currentTimeMillis()
+                )
+
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .set(updates, SetOptions.merge())
+
+                Log.d(TAG, "Live device screenshot frame uploaded for UID: $uid (${bitmap.width}x${bitmap.height})")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error encoding screenshot for Firestore upload", e)
+            }
+        }
     }
 
     // ---------------------------------------------------------------
