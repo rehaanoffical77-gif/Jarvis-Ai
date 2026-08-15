@@ -1,8 +1,8 @@
 {
-  "versionCode": 30,
-  "versionName": "2.1.0",
+  "versionCode": 35,
+  "versionName": "2.2.0",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Build Major Release v2.1.0: Saves dismissed version code on both Update Now & Later clicks, suppressing dialog re-triggers."
+  "changelog": "Build Release APK v2.2.0: Disabled automatic update popups on app launch to guarantee clean startup."
 }
