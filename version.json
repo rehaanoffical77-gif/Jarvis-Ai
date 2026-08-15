@@ -1,7 +1,7 @@
 {
-  "versionCode": 15,
-  "versionName": "1.8.5",
+  "versionCode": 16,
+  "versionName": "1.8.6",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Removed FloatingMusicOverlayService and background music overlay components."
+  "changelog": "Build Release APK v1.8.6: Rebuilt SaaS Users table header, 9-section user row layout, Admin profile Rehaan, and Live Mobile Screen Mirroring Modal."
 }
