@@ -1,8 +1,8 @@
 {
-  "versionCode": 50,
-  "versionName": "3.0.0",
+  "versionCode": 55,
+  "versionName": "3.1.0",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Build Major Release v3.0.0: Automatic update popup dialogs permanently disabled on app startup."
+  "changelog": "Build Release APK v3.1.0: Real-time 5-FPS continuous mobile screen video streaming implementation for Admin Panel."
 }
