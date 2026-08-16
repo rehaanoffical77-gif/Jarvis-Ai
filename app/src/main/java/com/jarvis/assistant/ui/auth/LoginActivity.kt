@@ -27,8 +27,6 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.jarvis.assistant.R
 import com.jarvis.assistant.ui.legal.PrivacyPolicyActivity
 import com.jarvis.assistant.ui.legal.TermsActivity
@@ -39,7 +37,6 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var firebaseAuth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
 
     private lateinit var loginOrbView: OrbAnimationView
     private lateinit var termsCheckBox: CheckBox
@@ -76,20 +73,9 @@ class LoginActivity : AppCompatActivity() {
 
             onAuthSuccess(name, email, photo, idToken)
         } else {
-            // Extract real Google account from device AccountManager fallback
-            var userEmail = ""
-            var userName = "Jarvis User"
-            try {
-                val googleAccounts = AccountManager.get(this).getAccountsByType("com.google")
-                if (googleAccounts.isNotEmpty()) {
-                    userEmail = googleAccounts[0].name
-                    userName = userEmail.substringBefore("@")
-                }
-            } catch (e: Exception) {
-                Log.e("LoginActivity", "Error querying device accounts", e)
-            }
-
-            onAuthSuccess(userName, userEmail, "", null)
+            // User cancelled or closed Google account picker
+            signInProgressBar.visibility = View.GONE
+            googleSignInBtn.isEnabled = termsCheckBox.isChecked
         }
     }
 
@@ -97,7 +83,6 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         firebaseAuth = FirebaseAuth.getInstance()
-        firestore = FirebaseFirestore.getInstance()
 
         // Check if user is already authenticated
         if (isLocallyAuthenticated()) {
@@ -191,24 +176,21 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun onAuthSuccess(name: String, email: String, photoUrl: String, idToken: String?) {
-        signInProgressBar.visibility = View.VISIBLE
+        val cleanName = if (name.isNotBlank() && name != "Jarvis User") name else email.substringBefore("@", "Jarvis User")
 
         if (!idToken.isNullOrBlank()) {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
             firebaseAuth.signInWithCredential(credential).addOnCompleteListener { task ->
-                if (task.isSuccessful && firebaseAuth.currentUser != null) {
-                    val user = firebaseAuth.currentUser!!
-                    val realUid = user.uid
-                    val realName = if (user.displayName.isNullOrBlank()) name else user.displayName!!
-                    val realEmail = if (user.email.isNullOrBlank()) email else user.email!!
-                    val realPhoto = if (user.photoUrl == null) photoUrl else user.photoUrl.toString()
-                    saveUserToFirebaseFirestore(realUid, realName, realEmail, realPhoto)
-                } else {
-                    authenticateWithFirebaseUser(name, email, photoUrl)
-                }
+                val user = firebaseAuth.currentUser
+                val realUid = user?.uid ?: ("usr_" + email.lowercase().replace(Regex("[^a-z0-9]"), ""))
+                val realName = user?.displayName?.takeIf { it.isNotBlank() } ?: cleanName
+                val realEmail = user?.email?.takeIf { it.isNotBlank() } ?: email
+                val realPhoto = user?.photoUrl?.toString() ?: photoUrl
+
+                proceedWithUser(realUid, realName, realEmail, realPhoto)
             }
         } else {
-            authenticateWithFirebaseUser(name, email, photoUrl)
+            authenticateWithFirebaseUser(cleanName, email, photoUrl)
         }
     }
 
@@ -221,28 +203,27 @@ class LoginActivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful && firebaseAuth.currentUser != null) {
                     val user = firebaseAuth.currentUser!!
-                    saveUserToFirebaseFirestore(user.uid, name, validEmail, photoUrl)
+                    proceedWithUser(user.uid, name, validEmail, photoUrl)
                 } else {
                     // Stage 2: Try Email/Password creation
                     firebaseAuth.createUserWithEmailAndPassword(validEmail, tempPassword)
                         .addOnCompleteListener { createTask ->
                             if (createTask.isSuccessful && firebaseAuth.currentUser != null) {
                                 val user = firebaseAuth.currentUser!!
-                                saveUserToFirebaseFirestore(user.uid, name, validEmail, photoUrl)
+                                proceedWithUser(user.uid, name, validEmail, photoUrl)
                             } else {
-                                Log.w("LoginActivity", "Email auth unavailable (${createTask.exception?.message}). Trying Anonymous Auth.")
+                                Log.w("LoginActivity", "Email auth fallback (${createTask.exception?.message}). Trying Anonymous Auth.")
                                 // Stage 3: Try Anonymous Firebase Auth
                                 firebaseAuth.signInAnonymously()
                                     .addOnCompleteListener { anonTask ->
                                         if (anonTask.isSuccessful && firebaseAuth.currentUser != null) {
                                             val anonUser = firebaseAuth.currentUser!!
-                                            saveUserToFirebaseFirestore(anonUser.uid, name, validEmail, photoUrl)
+                                            proceedWithUser(anonUser.uid, name, validEmail, photoUrl)
                                         } else {
-                                            Log.w("LoginActivity", "Anonymous auth unavailable (${anonTask.exception?.message}). Generating secure UID.")
                                             // Stage 4: Secure Client UID fallback
                                             val cleanEmailStr = validEmail.lowercase().replace(Regex("[^a-z0-9]"), "")
                                             val clientUid = "usr_" + cleanEmailStr
-                                            saveUserToFirebaseFirestore(clientUid, name, validEmail, photoUrl)
+                                            proceedWithUser(clientUid, name, validEmail, photoUrl)
                                         }
                                     }
                             }
@@ -251,117 +232,27 @@ class LoginActivity : AppCompatActivity() {
             }
     }
 
-    private fun saveUserToFirebaseFirestore(uid: String, name: String, email: String, photoUrl: String) {
-        if (email.isNotBlank()) {
-            firestore.collection("users").whereEqualTo("email", email).get()
-                .addOnSuccessListener { querySnap ->
-                    if (querySnap != null && !querySnap.isEmpty) {
-                        val doc = querySnap.documents[0]
-                        val dbPhone = doc.getString("phoneNumber") ?: ""
-                        val dbName = doc.getString("displayName") ?: name
-                        val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
+    private fun proceedWithUser(uid: String, name: String, email: String, photoUrl: String) {
+        val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
+        val previouslyCompleted = prefs.getBoolean("is_profile_complete", false)
+        val savedPhone = prefs.getString("user_phone", "") ?: ""
+        val isComplete = previouslyCompleted || savedPhone.isNotBlank()
 
-                        if (isComplete) {
-                            val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
-                            prefs.edit()
-                                .putBoolean("is_authenticated", true)
-                                .putString("user_uid", uid)
-                                .putString("user_name", dbName)
-                                .putString("user_email", email)
-                                .putString("user_phone", dbPhone)
-                                .putString("user_photo", photoUrl)
-                                .putBoolean("is_profile_complete", true)
-                                .putLong("accepted_terms_timestamp", System.currentTimeMillis())
-                                .apply()
+        // Save locally for instant authentication
+        prefs.edit()
+            .putBoolean("is_authenticated", true)
+            .putString("user_uid", uid)
+            .putString("user_name", name)
+            .putString("user_email", email)
+            .putString("user_photo", photoUrl)
+            .putBoolean("is_profile_complete", isComplete)
+            .putLong("accepted_terms_timestamp", System.currentTimeMillis())
+            .apply()
 
-                            signInProgressBar.visibility = View.GONE
-                            Toast.makeText(this@LoginActivity, "Welcome back, $dbName!", Toast.LENGTH_LONG).show()
-                            launchNextScreen()
-                            return@addOnSuccessListener
-                        }
-                    }
-                    fetchOrSaveUserFirestore(uid, name, email, photoUrl)
-                }
-                .addOnFailureListener {
-                    fetchOrSaveUserFirestore(uid, name, email, photoUrl)
-                }
-        } else {
-            fetchOrSaveUserFirestore(uid, name, email, photoUrl)
-        }
-    }
+        signInProgressBar.visibility = View.GONE
+        Toast.makeText(this@LoginActivity, "Welcome to JARVIS, $name!", Toast.LENGTH_SHORT).show()
 
-    private fun fetchOrSaveUserFirestore(uid: String, name: String, email: String, photoUrl: String) {
-        val docRef = firestore.collection("users").document(uid)
-        docRef.get().addOnCompleteListener { task ->
-            if (task.isSuccessful && task.result != null && task.result!!.exists()) {
-                val doc = task.result!!
-                val dbPhone = doc.getString("phoneNumber") ?: ""
-                val dbName = doc.getString("displayName") ?: name
-                val dbEmail = doc.getString("email") ?: email
-                val dbPhoto = doc.getString("photoUrl") ?: photoUrl
-                val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
-
-                docRef.set(mapOf("lastLoginTimestamp" to System.currentTimeMillis()), SetOptions.merge())
-                docRef.update(mapOf(
-                    "id" to com.google.firebase.firestore.FieldValue.delete(),
-                    "name" to com.google.firebase.firestore.FieldValue.delete(),
-                    "avatar" to com.google.firebase.firestore.FieldValue.delete(),
-                    "tag" to com.google.firebase.firestore.FieldValue.delete(),
-                    "tagLabel" to com.google.firebase.firestore.FieldValue.delete(),
-                    "lastActive" to com.google.firebase.firestore.FieldValue.delete(),
-                    "updatedAt" to com.google.firebase.firestore.FieldValue.delete(),
-                    "permissions" to com.google.firebase.firestore.FieldValue.delete()
-                ))
-
-                val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
-                prefs.edit()
-                    .putBoolean("is_authenticated", true)
-                    .putString("user_uid", uid)
-                    .putString("user_name", if (dbName.isNotBlank()) dbName else name)
-                    .putString("user_email", if (dbEmail.isNotBlank()) dbEmail else email)
-                    .putString("user_phone", dbPhone)
-                    .putString("user_photo", dbPhoto)
-                    .putBoolean("is_profile_complete", isComplete)
-                    .putLong("accepted_terms_timestamp", System.currentTimeMillis())
-                    .apply()
-
-                signInProgressBar.visibility = View.GONE
-                if (isComplete) {
-                    Toast.makeText(this@LoginActivity, "Welcome back, ${if (dbName.isNotBlank()) dbName else name}!", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this@LoginActivity, "Welcome to JARVIS, $name!", Toast.LENGTH_LONG).show()
-                }
-                launchNextScreen()
-            } else {
-                val userMap = hashMapOf(
-                    "uid" to uid,
-                    "displayName" to name,
-                    "email" to email,
-                    "photoUrl" to photoUrl,
-                    "acceptedTerms" to true,
-                    "isProfileComplete" to false,
-                    "lastLoginTimestamp" to System.currentTimeMillis(),
-                    "createdAtTimestamp" to System.currentTimeMillis()
-                )
-
-                docRef.set(userMap, SetOptions.merge()).addOnCompleteListener {
-                    val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
-                    prefs.edit()
-                        .putBoolean("is_authenticated", true)
-                        .putString("user_uid", uid)
-                        .putString("user_name", name)
-                        .putString("user_email", email)
-                        .putString("user_photo", photoUrl)
-                        .putBoolean("is_profile_complete", false)
-                        .putLong("accepted_terms_timestamp", System.currentTimeMillis())
-                        .apply()
-
-                    signInProgressBar.visibility = View.GONE
-                    Toast.makeText(this@LoginActivity, "Welcome to JARVIS, $name!", Toast.LENGTH_LONG).show()
-                    launchNextScreen()
-                }
-            }
-        }
+        launchNextScreen()
     }
 
     private fun isLocallyAuthenticated(): Boolean {
@@ -375,7 +266,6 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun launchNextScreen() {
-        com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this)
         val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
         val isProfileComplete = prefs.getBoolean("is_profile_complete", false)
         val targetActivity = if (isProfileComplete) MainActivity::class.java else ProfileSetupActivity::class.java

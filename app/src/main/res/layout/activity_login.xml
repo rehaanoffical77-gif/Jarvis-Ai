@@ -6,7 +6,7 @@
     android:background="@color/orb_dark_bg"
     android:padding="24dp">
 
-    <!-- Top Header: J.A.R.V.I.S AI Title & Subtitle -->
+    <!-- Top Header: JARVIS Title & Subtitle -->
     <LinearLayout
         android:id="@+id/topHeaderContainer"
         android:layout_width="match_parent"
@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-medium"
             android:letterSpacing="0.2"
-            android:text="J.A.R.V.I.S  A I"
+            android:text="JARVIS"
             android:textColor="@color/orb_cyan_glow"
             android:textSize="26sp"
             android:textStyle="bold" />

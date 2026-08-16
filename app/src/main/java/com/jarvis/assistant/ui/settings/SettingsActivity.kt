@@ -22,8 +22,6 @@ import com.jarvis.assistant.util.SimManager
 import com.jarvis.assistant.util.pressFeedback
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import android.util.Log
 
 class SettingsActivity : AppCompatActivity() {
@@ -380,26 +378,8 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
             }
-
-            // 2. Sync Display Name and updated timestamp to Firebase Firestore Database
-            if (!uid.isNullOrBlank()) {
-                val updateMap = hashMapOf<String, Any>(
-                    "displayName" to newUserName,
-                    "email" to email,
-                    "updatedAtTimestamp" to System.currentTimeMillis()
-                )
-                FirebaseFirestore.getInstance().collection("users").document(uid)
-                    .set(updateMap, SetOptions.merge())
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            Log.d("SettingsActivity", "Firebase Firestore document synced for UID: $uid")
-                        } else {
-                            Log.e("SettingsActivity", "Failed to sync Firestore: ${task.exception?.message}")
-                        }
-                    }
-            }
         } catch (e: Exception) {
-            Log.e("SettingsActivity", "Error syncing user data to Firebase", e)
+            Log.e("SettingsActivity", "Error updating profile name", e)
         }
     }
 

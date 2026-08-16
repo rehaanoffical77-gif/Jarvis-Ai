@@ -47,3 +47,4 @@ admin-panel/
 # Scratch and extracted archives (Do not push to GitHub)
 scratch/
 *.zip
+mcp_config.json

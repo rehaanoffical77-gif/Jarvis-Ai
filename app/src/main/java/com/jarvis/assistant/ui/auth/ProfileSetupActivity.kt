@@ -11,8 +11,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.jarvis.assistant.R
 import com.jarvis.assistant.ui.main.MainActivity
 import com.jarvis.assistant.ui.main.OrbAnimationView
@@ -20,7 +18,6 @@ import com.jarvis.assistant.ui.main.OrbAnimationView
 class ProfileSetupActivity : AppCompatActivity() {
 
     private lateinit var firebaseAuth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
 
     private lateinit var profileOrbView: OrbAnimationView
     private lateinit var nameInput: EditText
@@ -33,7 +30,6 @@ class ProfileSetupActivity : AppCompatActivity() {
         setContentView(R.layout.activity_profile_setup)
 
         firebaseAuth = FirebaseAuth.getInstance()
-        firestore = FirebaseFirestore.getInstance()
 
         profileOrbView = findViewById(R.id.profileOrbView)
         nameInput = findViewById(R.id.nameInput)
@@ -57,39 +53,6 @@ class ProfileSetupActivity : AppCompatActivity() {
         if (prefs.getBoolean("is_profile_complete", false)) {
             launchMainActivity()
             return
-        }
-
-        val currentUser = firebaseAuth.currentUser
-        val uid = currentUser?.uid ?: prefs.getString("user_uid", null)
-        val email = currentUser?.email ?: prefs.getString("user_email", null)
-
-        if (uid != null || email != null) {
-            val queryTask = if (uid != null) {
-                firestore.collection("users").document(uid).get()
-            } else {
-                null
-            }
-
-            queryTask?.addOnSuccessListener { doc ->
-                if (doc != null && doc.exists()) {
-                    val dbPhone = doc.getString("phoneNumber") ?: ""
-                    val dbName = doc.getString("displayName") ?: ""
-                    val isComplete = (doc.getBoolean("isProfileComplete") == true) || dbPhone.isNotBlank()
-
-                    if (isComplete) {
-                        prefs.edit()
-                            .putString("user_name", dbName)
-                            .putString("user_phone", dbPhone)
-                            .putBoolean("is_profile_complete", true)
-                            .apply()
-                        launchMainActivity()
-                        return@addOnSuccessListener
-                    }
-
-                    if (dbName.isNotBlank()) nameInput.setText(dbName)
-                    if (dbPhone.isNotBlank()) phoneInput.setText(dbPhone)
-                }
-            }
         }
 
         val savedName = prefs.getString("user_name", "") ?: ""
@@ -134,56 +97,31 @@ class ProfileSetupActivity : AppCompatActivity() {
 
         val currentUser = firebaseAuth.currentUser
         val prefs = getSharedPreferences("jarvis_prefs", MODE_PRIVATE)
-        val uid = currentUser?.uid ?: prefs.getString("user_uid", null) ?: "user_${System.currentTimeMillis()}"
-        val email = currentUser?.email ?: prefs.getString("user_email", "") ?: ""
 
-        // 1. Update Firebase Auth Profile
+        // 1. Immediately Save to Local SharedPreferences
+        prefs.edit()
+            .putString("user_name", name)
+            .putString("user_phone", phone)
+            .putBoolean("is_profile_complete", true)
+            .apply()
+
+        // 2. Update Firebase Auth Profile in Background
         if (currentUser != null) {
-            val profileUpdates = UserProfileChangeRequest.Builder()
-                .setDisplayName(name)
-                .build()
-            currentUser.updateProfile(profileUpdates)
+            try {
+                val profileUpdates = UserProfileChangeRequest.Builder()
+                    .setDisplayName(name)
+                    .build()
+                currentUser.updateProfile(profileUpdates)
+            } catch (e: Exception) {
+                Log.w("ProfileSetupActivity", "Failed to update profile", e)
+            }
         }
 
-        // 2. Save User Document to Firebase Firestore Database
-        val userData = hashMapOf<String, Any>(
-            "uid" to uid,
-            "displayName" to name,
-            "phoneNumber" to phone,
-            "email" to email,
-            "isProfileComplete" to true,
-            "updatedAtTimestamp" to System.currentTimeMillis()
-        )
+        saveProgressBar.visibility = View.GONE
+        Toast.makeText(this@ProfileSetupActivity, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
 
-        firestore.collection("users").document(uid)
-            .set(userData, SetOptions.merge())
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d("ProfileSetupActivity", "Profile synced successfully to Firebase Firestore: $uid")
-                } else {
-                    Log.e("ProfileSetupActivity", "Failed to sync Firestore: ${task.exception?.message}")
-                }
-
-                // 3. Save to Local SharedPreferences App Settings
-                prefs.edit()
-                    .putString("user_name", name)
-                    .putString("user_phone", phone)
-                    .putBoolean("is_profile_complete", true)
-                    .apply()
-
-                saveProgressBar.visibility = View.GONE
-                Toast.makeText(this@ProfileSetupActivity, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
-
-                // Trigger full user data sync
-                com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this@ProfileSetupActivity)
-
-                // Launch MainActivity
-                val intent = Intent(this@ProfileSetupActivity, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                }
-                startActivity(intent)
-                finish()
-            }
+        // 3. Instantly Launch MainActivity
+        launchMainActivity()
     }
 
     override fun onResume() {

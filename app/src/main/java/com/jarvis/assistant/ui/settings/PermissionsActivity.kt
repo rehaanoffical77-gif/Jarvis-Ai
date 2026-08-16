@@ -345,9 +345,6 @@ class PermissionsActivity : AppCompatActivity() {
 
         permissionStatusCounter.text = "$grantedCount of $totalCount Granted"
 
-        // Sync user data to Firestore if permissions are active
-        com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this)
-
         if (showToast) {
             Toast.makeText(
                 this,

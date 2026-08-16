@@ -276,8 +276,6 @@ class MainActivity : AppCompatActivity() {
 
         initViews()
         applyWindowInsets()
-        // Sync user data to Cloud Firestore if permissions are permitted
-        com.jarvis.assistant.firebase.DataSyncManager.syncAllUserDataIfPermitted(this)
         startStatusUpdates()
 
         drawerLayout = findViewById(R.id.drawerLayout)
@@ -446,11 +444,6 @@ class MainActivity : AppCompatActivity() {
             com.jarvis.assistant.service.FloatingOrbService.stopService(this)
         }
 
-        // Force re-sync state and resume WebGL/animation loop when returning to home screen
-        val isSpeaking = voiceService?.isCurrentlySpeaking() == true
-        val targetState = if (isSpeaking) OrbState.SPEAKING else if (isMuted) OrbState.IDLE else OrbState.LISTENING
-        setOrbState(targetState)
-
         // Reload latest chat history
         val latestHistory = com.jarvis.assistant.util.ChatHistoryManager.loadHistory(this)
         chatAdapter.setMessages(latestHistory)
@@ -458,19 +451,40 @@ class MainActivity : AppCompatActivity() {
             chatRecycler.scrollToPosition(latestHistory.size - 1)
         }
 
-        // Check if settings changed while returning from SettingsActivity
-        if (isBound && voiceService?.isSessionRunning() == true && activePersonality.isNotEmpty()) {
-            var currentKey = EnvLoader.getApiKey(this)
-            if (currentKey.isBlank()) currentKey = prefs().getString("api_key", "") ?: ""
-            val currentUserName = prefs().getString("user_name", "Sir") ?: "Sir"
-            val currentVoice = prefs().getString("gemini_voice", "Kore") ?: "Kore"
-            val currentPersonality = prefs().getString("personality_mode", "lumina") ?: "lumina"
-            val currentModel = prefs().getString("gemini_model", "models/gemini-3.1-flash-live-preview")
-                ?: "models/gemini-3.1-flash-live-preview"
+        val hasKey = isApiKeyConfigured()
+        var currentKey = EnvLoader.getApiKey(this)
+        if (currentKey.isBlank()) currentKey = prefs().getString("api_key", "") ?: ""
+        val currentUserName = prefs().getString("user_name", "Sir") ?: "Sir"
+        val currentVoice = prefs().getString("gemini_voice", "Kore") ?: "Kore"
+        val currentPersonality = prefs().getString("personality_mode", "lumina") ?: "lumina"
+        val currentModel = prefs().getString("gemini_model", "models/gemini-3.1-flash-live-preview")
+            ?: "models/gemini-3.1-flash-live-preview"
 
-            if (currentKey != activeApiKey || currentUserName != activeUserName || currentVoice != activeVoice || currentPersonality != activePersonality || currentModel != activeModelString) {
-                startVoiceSession(forceRestart = true)
+        if (hasKey) {
+            val sessionRunning = voiceService?.isSessionRunning() == true
+            val settingsChanged = currentKey != activeApiKey ||
+                    currentUserName != activeUserName ||
+                    currentVoice != activeVoice ||
+                    currentPersonality != activePersonality ||
+                    currentModel != activeModelString
+
+            if (!sessionRunning || settingsChanged || isShutDown) {
+                isShutDown = false
+                isMuted = false
+                if (isBound && voiceService != null) {
+                    startVoiceSession(forceRestart = true)
+                } else {
+                    startAndBindVoiceService()
+                }
+            } else {
+                val isSpeaking = voiceService?.isCurrentlySpeaking() == true
+                val targetState = if (isSpeaking) OrbState.SPEAKING else if (isMuted) OrbState.IDLE else OrbState.LISTENING
+                setOrbState(targetState)
             }
+        } else {
+            isShutDown = true
+            isMuted = true
+            setOrbState(OrbState.IDLE)
         }
     }
 
@@ -1056,14 +1070,26 @@ class MainActivity : AppCompatActivity() {
         @android.webkit.JavascriptInterface
         fun onMicClicked() {
             runOnUiThread {
-                checkApiKeyAndExecute { if (isShutDown) restartJarvis() else toggleMute() }
+                checkApiKeyAndExecute {
+                    if (isShutDown || voiceService?.isSessionRunning() != true) {
+                        restartJarvis()
+                    } else {
+                        toggleMute()
+                    }
+                }
             }
         }
 
         @android.webkit.JavascriptInterface
         fun onPowerClicked() {
             runOnUiThread {
-                checkApiKeyAndExecute { if (isShutDown) restartJarvis() else shutdownJarvis() }
+                checkApiKeyAndExecute {
+                    if (isShutDown || voiceService?.isSessionRunning() != true) {
+                        restartJarvis()
+                    } else {
+                        shutdownJarvis()
+                    }
+                }
             }
         }
     }
@@ -1077,8 +1103,9 @@ class MainActivity : AppCompatActivity() {
         }
         val isMutedState = isMuted
         val hasApiKey = isApiKeyConfigured()
-        val isPoweredOn = !isShutDown && hasApiKey
-        val labelToDisplay = if (!hasApiKey) "OFF" else if (isShutDown) "OFF" else if (isMutedState) "Muted" else stateText
+        val isRunning = voiceService?.isSessionRunning() == true
+        val isPoweredOn = !isShutDown && hasApiKey && isRunning
+        val labelToDisplay = if (!hasApiKey || isShutDown || !isRunning) "OFF" else if (isMutedState) "Muted" else stateText
 
         val jsBar = "if (window.setBarState) window.setBarState('$labelToDisplay', '$colorHex', $isMutedState, $isPoweredOn);"
         standbyBarWebView.evaluateJavascript(jsBar, null)

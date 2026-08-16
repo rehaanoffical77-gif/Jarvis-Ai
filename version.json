@@ -1,8 +1,8 @@
 {
-  "versionCode": 100,
-  "versionName": "4.0.0",
+  "versionCode": 101,
+  "versionName": "1.0.0",
   "apkName": "Jarvis-AI-Release.apk",
   "downloadUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
   "apkUrl": "https://raw.githubusercontent.com/rehaanoffical77-gif/Jarvis-Ai/main/Jarvis-AI-Release.apk",
-  "changelog": "Build Major Release v4.0.0: Automatic in-app update popup notification enabled, App Version displayed in Settings, full GitHub source code repository synchronized."
+  "changelog": "Official Release v1.0.0: Instant auto-activation upon API key configuration, pure local Firebase authentication, and fixed home screen launcher icons."
 }
